@@ -28,8 +28,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import RobustScaler
 
+from sklearn.model_selection import train_test_split
+
 # その他
-# from tqdm import tqdm_notebook as tqdm
 import time
 from tqdm import tqdm
 from multiprocessing import cpu_count
@@ -91,198 +92,131 @@ selu_dd = sel_user_ffs(dd, user_n)
 # from exp_module import data_split as ds
 # f11 = ds.DataSplitExpt(aa, selu_aa, user_n)
 
-def data_split(st, user_select):
+from exp_module import conform
 
+def data_split(st, user_select, user_n):
+
+    '''
+    :param st: split_dataのことであり，multi_flagに基づいたデータの集合
+    :param user_select: stの中でも選択されたユーザのみのデータ
+    関係としては，st ∋　user_select
+    :param user_n: 選択されたユーザ
+    :return:
+    '''
+
+    # データ数が30以上あるか
     if user_select['user'].count() >= 30:
+
+        # 説明変数Xと目的変数Yに分割
         def X_Y(user_select):
             X = user_select.drop("user", 1)
             Y = user_select.user
             return X, Y
-
         X, Y = X_Y(user_select)
 
-        from sklearn.model_selection import train_test_split
-        def tt(X, Y):
-            X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=0, shuffle=True)
-            return X_train, X_test, Y_train, Y_test
+        # 訓練データとテストデータに分割
+        X_train, X_test_t, Y_train, Y_test_t = train_test_split(X, Y, test_size=0.2, random_state=0, shuffle=True)
 
-        X_train, X_test1, Y_train, Y_test1 = tt(X, Y)
+        # テストデータの個数をカウント➝外れ値はテストデータ数と同じ数だけ用意する
+        Y_test_t_size = Y_test_t.count()
 
-        Y_test1_size = Y_test1.count()
-
-        # stを使用
-        st2 = st.copy()
-        def hazure(st2,user_n,Y_test1_size):
+        # 偽物(外れ値)のデータの選択
+        def outlier(st, user_n, Y_test_t_size):
+            '''
+            :param st:
+            :param user_n:
+            :param Y_test_t_size: テストデータの個数
+            :return: st_f:user_n以外のデータ，st_f_us:st_fの中からtestデータと同じ数だけ選択した偽物のデータ
+            '''
             #user_n以外のuserを抽出
-            sst = st2[st2['user'] != user_n]
+            st_f = st[st['user'] != user_n]
             #sstをシャッフル
-            sst_shuffle = sst.sample(frac=1, random_state=0).reset_index(drop=True)
-            #testデータと同じだけ外れ値となるものを抽出
-            sst_select_outlier = sst_shuffle.sample(n = Y_test1_size, random_state=0)
-            return sst, sst_select_outlier
+            st_f_shuffle = st_f.sample(frac=1, random_state=0).reset_index(drop=True)
+            #testデータと同じ数の外れ値を選択
+            st_f_select_outlier = st_f_shuffle.sample(n = Y_test_t_size, random_state=0)
+            return st_f, st_f_select_outlier
+        st_f, st_f_us = outlier(st, user_n, Y_test_t_size)
 
-        df_hazure, sst_select_outlier = hazure(st2,user_n,Y_test1_size)
-
-        print('all:',st['user'].count())
-        print('all - select_data:',df_hazure['user'].count())
-        print('select_data:',st['user'].count() - df_hazure['user'].count())
-        print('select_hazure_data:',sst_select_outlier['user'].count())
+        # 外れ値の個数などの確認をしたい場合
+        # conform.conf_outlier(st, st_f, st_f_us)
 
         # testデータと外れ値データの結合
-    #     print('外れ値：',sst_select_outlier.shape)
+        st_f_us_number = list(st_f_us['user'])
+        print('\n外れ値として扱うuserのnumber\n', st_f_us_number)
 
-        list2 = list(sst_select_outlier['user'])
-        print('\n外れ値として扱うuserのnumber\n',list2)
+        # userをすべて０に変更
+        user_n_change = st_f_us.copy()
+        user_0 = user_n_change.replace({'user': st_f_us_number},0)
 
-        user_n_change = sst_select_outlier.copy()
-        #userをすべて０に変更
-        user_0 = user_n_change.replace({'user': list2},0)
-
-        X_test2, Y_test2 = X_Y(user_0)
+        # 偽物のデータを説明変数と目的変数に分割
+        X_test_f, Y_test_f = X_Y(user_0)
 
         # testデータの結合
-        X_test = pd.concat([X_test1, X_test2]).reset_index(drop=True)
+        X_test = pd.concat([X_test_t, X_test_f]).reset_index(drop=True)
+        Y_test = pd.concat([Y_test_t, Y_test_f]).reset_index(drop=True)
 
-        Y_test = pd.concat([Y_test1, Y_test2]).reset_index(drop=True)
+        # スケーリング
+        ss = preprocessing.StandardScaler().fit(X_train)
+        X_train_ss = ss.transform(X_train)
+        X_test_ss = ss.transform(X_test)
+        X_test_t_ss = ss.transform(X_test_t)
+        X_test_f_ss = ss.transform(X_test_f)
 
-        # 各フラグごとにss,mm,rsのスケーリング
-        def scaling(X_train, X_test, X_test1,X_test2):
-
-            def ss(X_train, X_test,X_test1,X_test2):
-                # 標準化するよ
-                # 二次元配列で行う場合　axis = 0 で列ごとの処理が行われる→これがデフォルト
-                from sklearn import preprocessing
-                from sklearn.preprocessing import StandardScaler
-                ss = preprocessing.StandardScaler().fit(X_train)
-                # ss.fit(X_train)
-                # モデルを保存する
-                # ss_filename = 'finalized_ss.sav'
-                # pickle.dump(ss, open(ss_filename, 'wb'))
-                X_train_ss = ss.transform(X_train)
-                X_test_ss = ss.transform(X_test) #type()は'numpy.ndarray'
-                # preprocessing.scale(X)
-                X_test1_ss = ss.transform(X_test1)
-                X_test2_ss = ss.transform(X_test2)
-                return X_train_ss, X_test_ss, X_test1_ss, X_test2_ss
-
-            def mm(X_train, X_test,X_test1,X_test2):
-                # 正規化するよ
-                from sklearn import preprocessing
-                from sklearn.preprocessing import MinMaxScaler
-                mm = preprocessing.MinMaxScaler().fit(X_train)
-                # mm.fit(X_train)
-                # モデルを保存する
-                # mm_filename = 'finalized_mm.sav'
-                # pickle.dump(mm, open(mm_filename, 'wb'))
-                X_train_mm = mm.transform(X_train)
-                X_test_mm = mm.transform(X_test)
-                X_test1_mm = mm.transform(X_test1)
-                X_test2_mm =mm.transform(X_test2)
-                # preprocessing.minmax_scale(X) # 直接処理するもの
-                return X_train_mm, X_test_mm,X_test1_mm, X_test2_mm
-
-            def rs(X_train, X_test,X_test1,X_test2):
-                # 外れ値に強いやつ
-                from sklearn import preprocessing # このなかに処理がまとめて入ってるらしい
-                from sklearn.preprocessing import RobustScaler
-                rs = preprocessing.RobustScaler(quantile_range=(25., 75.)).fit(X_train)
-                # rs.fit(X_train)
-                # モデルを保存する
-                # rs_filename = 'finalized_rs.sav'
-                # pickle.dump(rs, open(rs_filename, 'wb'))
-                X_train_rs = rs.transform(X_train)
-                X_test_rs = rs.transform(X_test)
-                X_test1_rs = rs.transform(X_test1)
-                X_test2_rs = rs.transform(X_test2)
-                return X_train_rs, X_test_rs,X_test1_rs, X_test2_rs
-
-            #  目的関数Yは共通
-            # なし
-            X_train_ori, X_test_ori, X_test1_ori, X_test2_ori = X_train, X_test, X_test1,X_test2
-            # 標準化
-            X_train_ss, X_test_ss,X_test1_ss, X_test2_ss = ss(X_train, X_test,X_test1, X_test2)
-            # 正規化
-            X_train_mm, X_test_mm,X_test1_mm, X_test2_mm = mm(X_train, X_test, X_test1, X_test2)
-            # 外れ値？
-            X_train_rs, X_test_rs,X_test1_rs,X_test2_rs = rs(X_train, X_test, X_test1, X_test2)
-
-            return X_train_ori, X_test_ori, X_test1_ori, X_test2_ori, X_train_ss, X_test_ss,X_test1_ss, X_test2_ss,X_train_mm, X_test_mm,X_test1_mm, X_test2_mm, X_train_rs, X_test_rs,X_test1_rs,X_test2_rs
-
-        X_train_ori, X_test_ori, X_test1_ori, X_test2_ori,X_train_ss, X_test_ss,X_test1_ss, X_test2_ss,X_train_mm, X_test_mm,X_test1_mm, X_test2_mm, X_train_rs, X_test_rs,X_test1_rs,X_test2_rs = scaling(X_train, X_test, X_test1,X_test2)
-
-        # ひとまずここまで
-        def target(Y_train,Y_test):
-            y_train = pd.DataFrame(Y_train)
-            g_train = y_train.groupby("user")
-            train = pd.DataFrame(g_train.size().sort_values(ascending=False))
-            list_index_train = train.index.values
-            list_index_train.sort()
-
-            y_test = pd.DataFrame(Y_test)
-            g_test = y_test.groupby("user")
-            test = pd.DataFrame(g_test.size().sort_values(ascending=False))
-            list_index_test = test.index.values
-            list_index_test
-            return list_index_train, list_index_test
-
-        y_train, y_test = target(Y_train,Y_test)
+        # Yに含まれるuserのindexを作成➝用途はおそらくまあ，可視化の際のメモリ用だと思われる
+        def Y_target(Y):
+            y = pd.DataFrame(Y)
+            g = y.groupby("user")
+            target = pd.DataFrame(g.size().sort_values(ascending=False))
+            target_index = target.index.values
+            return target_index
+        train_target = Y_target(Y_test)
+        test_target = Y_target(Y_test)
 
         # matome
-        print('\nX_base:',X.shape)
-        print('Y_base:',Y.shape)
-        print('X_train:',X_train.shape)
-        print('Y_train:',Y_train.shape)
-        print('true_test:',X_test1.shape)
-        print('false_test:',X_test2.shape)
-    #     print('Y_test2:',Y_test2.shape)
-    #     print('Y_train:',Y_train.shape)
-        print('X_test:',X_test.shape)
-        print('Y_test:',Y_test.shape)
-        print('y_train:',y_train)
-        print('y_test:',y_test)
+        # conform.conf_matome(X, Y, X_train, Y_train, X_test, Y_test, X_test_t, X_test_f, Y_test_t, Y_test_f, train_target, test_target)
 
-        return X_train_ori, X_test_ori, X_test1_ori, X_test2_ori,X_train_ss, X_test_ss,X_test1_ss, X_test2_ss,X_train_mm, X_test_mm,X_test1_mm, X_test2_mm, X_train_rs, X_test_rs,X_test1_rs,X_test2_rs,Y_train, Y_test, y_train, y_test, X_train, Y_test1, Y_test2
+        return X_train_ss, X_test_ss, X_test_t_ss, X_test_f_ss, Y_train, Y_test, train_target, test_target, X_train, Y_test_t, Y_test_f
 
     else:
         print('None')
-        return 0, 0, 0, 0, 0, 0,0, 0,0, 0,0, 0, 0, 0,0,0,0, 0, 0, 0, 0,0,0
+        return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         pass
 
 print('\n-----------------------------------------------------------------\na + a\n-----------------------------------------------------------------')
-X11_train_ori, X11_test_ori, X11_test1_ori, X11_test2_ori,X11_train_ss, X11_test_ss,X11_test1_ss, X11_test2_ss,X11_train_mm, X11_test_mm,X11_test1_mm, X11_test2_mm, X11_train_rs, X11_test_rs,X11_test1_rs,X11_test2_rs,Y11_train, Y11_test, y11_train, y11_test, X_train_uu, Y11_test1, Y11_test2 = data_split(aa, selu_aa)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\na + b\n-----------------------------------------------------------------')
-X12_train_ori, X12_test_ori, X12_test1_ori, X12_test2_ori,X12_train_ss, X12_test_ss,X12_test1_ss, X12_test2_ss,X12_train_mm, X12_test_mm,X12_test1_mm, X12_test2_mm, X12_train_rs, X12_test_rs,X12_test1_rs,X12_test2_rs,Y12_train, Y12_test, y12_train, y12_test, X_train_ud, Y12_test1, Y12_test2 = data_split(ab, selu_ab)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\na + c\n-----------------------------------------------------------------')
-X13_train_ori, X13_test_ori, X13_test1_ori, X13_test2_ori,X13_train_ss, X13_test_ss,X13_test1_ss, X13_test2_ss,X13_train_mm, X13_test_mm,X13_test1_mm, X13_test2_mm, X13_train_rs, X13_test_rs,X13_test1_rs,X13_test2_rs,Y13_train, Y13_test, y13_train, y13_test, X_train_ul, Y13_test1, Y13_test2 = data_split(ac, selu_ac)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\na + d\n-----------------------------------------------------------------')
-X14_train_ori, X14_test_ori, X14_test1_ori, X14_test2_ori,X14_train_ss, X14_test_ss,X14_test1_ss, X14_test2_ss,X14_train_mm, X14_test_mm,X14_test1_mm, X14_test2_mm, X14_train_rs, X14_test_rs,X14_test1_rs,X14_test2_rs,Y14_train, Y14_test, y14_train, y14_test,X_train_ur, Y14_test1, Y14_test2 = data_split(ad, selu_ad)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 
 print('\n-----------------------------------------------------------------\nb + a\n-----------------------------------------------------------------')
-X21_train_ori, X21_test_ori, X21_test1_ori, X21_test2_ori,X21_train_ss, X21_test_ss,X21_test1_ss, X21_test2_ss,X21_train_mm, X21_test_mm,X21_test1_mm, X21_test2_mm, X21_train_rs, X21_test_rs,X21_test1_rs,X21_test2_rs,Y21_train, Y21_test, y21_train, y21_test, X_train_du, Y21_test1, Y21_test2 = data_split(ba, selu_ba)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\nb + b\n-----------------------------------------------------------------')
-X22_train_ori, X22_test_ori, X22_test1_ori, X22_test2_ori,X22_train_ss, X22_test_ss,X22_test1_ss, X22_test2_ss,X22_train_mm, X22_test_mm,X22_test1_mm, X22_test2_mm, X22_train_rs, X22_test_rs,X22_test1_rs,X22_test2_rs,Y22_train, Y22_test, y22_train, y22_test, X_train_dd, Y22_test1, Y22_test2 = data_split(bb, selu_bb)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\nb + c\n-----------------------------------------------------------------')
-X23_train_ori, X23_test_ori, X23_test1_ori, X23_test2_ori,X23_train_ss, X23_test_ss,X23_test1_ss, X23_test2_ss,X23_train_mm, X23_test_mm,X23_test1_mm, X23_test2_mm, X23_train_rs, X23_test_rs,X23_test1_rs,X23_test2_rs,Y23_train, Y23_test, y23_train, y23_test, X_train_dl, Y23_test1, Y23_test2 = data_split(bc, selu_bc)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\nb + d\n-----------------------------------------------------------------')
-X24_train_ori, X24_test_ori, X24_test1_ori, X24_test2_ori,X24_train_ss, X24_test_ss,X24_test1_ss, X24_test2_ss,X24_train_mm, X24_test_mm,X24_test1_mm, X24_test2_mm, X24_train_rs, X24_test_rs,X24_test1_rs,X24_test2_rs,Y24_train, Y24_test, y24_train, y24_test,X_train_dr, Y24_test1, Y24_test2 = data_split(bd, selu_bd)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 
 print('\n-----------------------------------------------------------------\nc + a\n-----------------------------------------------------------------')
-X31_train_ori, X31_test_ori, X31_test1_ori, X31_test2_ori,X31_train_ss, X31_test_ss,X31_test1_ss, X31_test2_ss,X31_train_mm, X31_test_mm,X31_test1_mm, X31_test2_mm, X31_train_rs, X31_test_rs,X31_test1_rs,X31_test2_rs,Y31_train, Y31_test, y31_train, y31_test, X_train_lu, Y31_test1, Y31_test2 = data_split(ca, selu_ca)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\nc + b\n-----------------------------------------------------------------')
-X32_train_ori, X32_test_ori, X32_test1_ori, X32_test2_ori,X32_train_ss, X32_test_ss,X32_test1_ss, X32_test2_ss,X32_train_mm, X32_test_mm,X32_test1_mm, X32_test2_mm, X32_train_rs, X32_test_rs,X32_test1_rs,X32_test2_rs,Y32_train, Y32_test, y32_train, y32_test, X_train_ld, Y32_test1, Y32_test2 = data_split(cb, selu_cb)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\nc + c\n-----------------------------------------------------------------')
-X33_train_ori, X33_test_ori, X33_test1_ori, X33_test2_ori,X33_train_ss, X33_test_ss,X33_test1_ss, X33_test2_ss,X33_train_mm, X33_test_mm,X33_test1_mm, X33_test2_mm, X33_train_rs, X33_test_rs,X33_test1_rs,X33_test2_rs,Y33_train, Y33_test, y33_train, y33_test, X_train_ll, Y33_test1, Y33_test2 = data_split(cc, selu_cc)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\nc + d\n-----------------------------------------------------------------')
-X34_train_ori, X34_test_ori, X34_test1_ori, X34_test2_ori,X34_train_ss, X34_test_ss,X34_test1_ss, X34_test2_ss,X34_train_mm, X34_test_mm,X34_test1_mm, X34_test2_mm, X34_train_rs, X34_test_rs,X34_test1_rs,X34_test2_rs,Y34_train, Y34_test, y34_train, y34_test,X_train_lr, Y34_test1, Y34_test2 = data_split(cd, selu_cd)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 
 print('\n-----------------------------------------------------------------\nd + a\n-----------------------------------------------------------------')
-X41_train_ori, X41_test_ori, X41_test1_ori, X41_test2_ori,X41_train_ss, X41_test_ss,X41_test1_ss, X41_test2_ss,X41_train_mm, X41_test_mm,X41_test1_mm, X41_test2_mm, X41_train_rs, X41_test_rs,X41_test1_rs,X41_test2_rs,Y41_train, Y41_test, y41_train, y41_test, X_train_ru, Y41_test1, Y41_test2 = data_split(da, selu_da)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\nd + b\n-----------------------------------------------------------------')
-X42_train_ori, X42_test_ori, X42_test1_ori, X42_test2_ori,X42_train_ss, X42_test_ss,X42_test1_ss, X42_test2_ss,X42_train_mm, X42_test_mm,X42_test1_mm, X42_test2_mm, X42_train_rs, X42_test_rs,X42_test1_rs,X42_test2_rs,Y42_train, Y42_test, y42_train, y42_test, X_train_rd, Y42_test1, Y42_test2 = data_split(db, selu_db)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\nd + c\n-----------------------------------------------------------------')
-X43_train_ori, X43_test_ori, X43_test1_ori, X43_test2_ori,X43_train_ss, X43_test_ss,X43_test1_ss, X43_test2_ss,X43_train_mm, X43_test_mm,X43_test1_mm, X43_test2_mm, X43_train_rs, X43_test_rs,X43_test1_rs,X43_test2_rs,Y43_train, Y43_test, y43_train, y43_test, X_train_rl, Y43_test1, Y43_test2 = data_split(dc, selu_dc)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 print('\n-----------------------------------------------------------------\nd + d\n-----------------------------------------------------------------')
-X44_train_ori, X44_test_ori, X44_test1_ori, X44_test2_ori,X44_train_ss, X44_test_ss,X44_test1_ss, X44_test2_ss,X44_train_mm, X44_test_mm,X44_test1_mm, X44_test2_mm, X44_train_rs, X44_test_rs,X44_test1_rs,X44_test2_rs,Y44_train, Y44_test, y44_train, y44_test,X_train_rr, Y44_test1, Y44_test2 = data_split(dd, selu_dd)
+aa_X_train_ss, aa_X_test_ss, aa_X_test_t_ss, aa_X_test_f_ss, aa_Y_train, aa_Y_test, aa_train_target, aa_test_target, aa_X_train, aa_Y_test_t, aa_Y_test_f = data_split(aa, selu_aa, user_n)
 
 def result(normal_result, anomaly_result, Y_true, prediction, y_score):
     print("\n正常データのスコア\n", normal_result)
