@@ -28,13 +28,14 @@ from sklearn import preprocessing
 # from sklearn.preprocessing import MinMaxScaler
 # from sklearn.preprocessing import RobustScaler
 
-
 # その他
 # import time
 # from tqdm import tqdm
 # from multiprocessing import cpu_count
 # from sklearn.externals import joblib
 
+# データ確認用
+from exp_module import conform
 
 # warning inogre code
 import warnings
@@ -100,18 +101,6 @@ selu_db = sel_user_ffs(db, user_n)
 selu_dc = sel_user_ffs(dc, user_n)
 selu_dd = sel_user_ffs(dd, user_n)
 
-'''
-さてどうしようか
-インスタンス変数を使うか，普通に関数の戻り値を使うか
-'''
-
-# 実験用にデータを訓練データ，検証データ，テストデータにわける
-# from exp_module import data_split as ds
-# f11 = ds.DataSplitExpt(aa, selu_aa, user_n)
-
-from exp_module import conform
-from exp_module import data_split_exp as dse
-
 def result(normal_result, anomaly_result, Y_true, prediction, y_score):
     print("\n正常データのスコア\n", normal_result)
     print("\n異常データのスコア\n", anomaly_result)
@@ -167,6 +156,9 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
+
+# データ分割用
+from exp_module import data_split_exp as dse
 
 # from sklearn.model_selection import cross_val_predict
 # from sklearn.model_selection import cross_val_score
@@ -237,7 +229,7 @@ class Experiment():
         self.user_select = user_select
         self.user_n = user_n
         self.flag_n = flag_n
-
+        # 実験用にデータを訓練データ，検証データ，テストデータにわける
         self.X_train_ss, self.X_test_ss, self.X_test_t_ss, self.X_test_f_ss, self.Y_train, self.Y_test, self.train_target, \
         self.test_target, self.X_train, self.Y_test_t, self.Y_test_f = dse.data_split(self.st, self.user_select, self.user_n)
 
@@ -290,16 +282,17 @@ class Experiment():
             # df = scores.gropby(level=0).apply(lambda scores: scores.xs(scores.name).clump_thickness.to_dict()).to_dict()
             df = pd.DataFrame(scores)
             print(df.T)
+            # print(scores['LocalOutlierFactor'][0]['Accuracy'])
             # ゴリ押しプログラム書くしかない(泣)
-            # model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
-            # for m_i in model_index:
-            #     a = np.zeros((4, 8))
-            #
-            #     for df_i in df_index:
-            #         b = 0
-            #         for i in range(10):
-            #             b += scores[m_i][i][df_i]
-            #         a
+            model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
+            a = np.zeros((4, 8))
+            for i, m_i in enumerate(model_index):
+                for j, df_i in enumerate(df_index):
+                    b = 0
+                    for m in range(k):
+                        b += scores[m_i][m][df_i]
+                    a[i][j] = b/k
+            print(a)
             # index = [['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope'],[]]
         except AttributeError:
             print('None')
