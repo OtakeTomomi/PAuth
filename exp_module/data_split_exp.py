@@ -1,168 +1,97 @@
 
-import copy
-import pickle
-import numpy as np
 import pandas as pd
-from pandas import DataFrame
-# from IPython.display import display
+from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
 
-def ds_exp(st, user_select):
 
+def X_Y(user_select):
+    X = user_select.drop("user", 1)
+    Y = user_select.user
+    return X, Y
+
+def data_split(st, user_select, user_n):
+
+    '''
+    :param st: split_dataのことであり，multi_flagに基づいたデータの集合
+    :param user_select: stの中でも選択されたユーザのみのデータ
+    関係としては，st ∋　user_select
+    :param user_n: 選択されたユーザ
+    :return:
+    '''
+
+    # データ数が30以上あるか
     if user_select['user'].count() >= 30:
-        def X_Y(user_select):
-            X = user_select.drop("user", 1)
-            Y = user_select.user
-            return X, Y
 
+        # 説明変数Xと目的変数Yに分割
         X, Y = X_Y(user_select)
 
-        from sklearn.model_selection import train_test_split
-        def tt(X, Y):
-            X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=0, shuffle=True)
-            return X_train, X_test, Y_train, Y_test
+        # 訓練データとテストデータに分割
+        X_train, X_test_t, Y_train, Y_test_t = train_test_split(X, Y, test_size=0.2, random_state=0, shuffle=True)
 
-        X_train, X_test1, Y_train, Y_test1 = tt(X, Y)
+        # テストデータの個数をカウント➝外れ値はテストデータ数と同じ数だけ用意する
+        Y_test_t_size = Y_test_t.count()
 
-        Y_test1_size = Y_test1.count()
-
-        # stを使用
-        st2 = st.copy()
-        def hazure(st2,user_n,Y_test1_size):
+        # 偽物(外れ値)のデータの選択
+        def outlier(st, user_n, Y_test_t_size):
+            '''
+            :param st:
+            :param user_n:
+            :param Y_test_t_size: テストデータの個数
+            :return: st_f:user_n以外のデータ，st_f_us:st_fの中からtestデータと同じ数だけ選択した偽物のデータ
+            '''
             #user_n以外のuserを抽出
-            sst = st2[st2['user'] != user_n]
+            st_f = st[st['user'] != user_n]
             #sstをシャッフル
-            sst_shuffle = sst.sample(frac=1, random_state=0).reset_index(drop=True)
-            #testデータと同じだけ外れ値となるものを抽出
-            sst_select_outlier = sst_shuffle.sample(n = Y_test1_size, random_state=0)
-            return sst, sst_select_outlier
+            st_f_shuffle = st_f.sample(frac=1, random_state=0).reset_index(drop=True)
+            #testデータと同じ数の外れ値を選択
+            st_f_select_outlier = st_f_shuffle.sample(n = Y_test_t_size, random_state=0)
+            return st_f, st_f_select_outlier
+        st_f, st_f_us = outlier(st, user_n, Y_test_t_size)
 
-        df_hazure, sst_select_outlier = hazure(st2,user_n,Y_test1_size)
-
-        print('all:',st['user'].count())
-        print('all - select_data:',df_hazure['user'].count())
-        print('select_data:',st['user'].count() - df_hazure['user'].count())
-        print('select_hazure_data:',sst_select_outlier['user'].count())
+        # 外れ値の個数などの確認をしたい場合
+        # conform.conf_outlier(st, st_f, st_f_us)
 
         # testデータと外れ値データの結合
-    #     print('外れ値：',sst_select_outlier.shape)
+        st_f_us_number = list(st_f_us['user'])
+        print('\n外れ値として扱うuserのnumber\n', st_f_us_number)
 
-        list2 = list(sst_select_outlier['user'])
-        print('\n外れ値として扱うuserのnumber\n',list2)
+        # userをすべて０に変更
+        user_n_change = st_f_us.copy()
+        user_0 = user_n_change.replace({'user': st_f_us_number},0)
 
-        user_n_change = sst_select_outlier.copy()
-        #userをすべて０に変更
-        user_0 = user_n_change.replace({'user': list2},0)
-
-        X_test2, Y_test2 = X_Y(user_0)
+        # 偽物のデータを説明変数と目的変数に分割
+        X_test_f, Y_test_f = X_Y(user_0)
 
         # testデータの結合
-        X_test = pd.concat([X_test1, X_test2]).reset_index(drop=True)
+        X_test = pd.concat([X_test_t, X_test_f]).reset_index(drop=True)
+        Y_test = pd.concat([Y_test_t, Y_test_f]).reset_index(drop=True)
 
-        Y_test = pd.concat([Y_test1, Y_test2]).reset_index(drop=True)
+        # スケーリング
+        ss = preprocessing.StandardScaler().fit(X_train)
+        X_train_ss = ss.transform(X_train)
+        X_test_ss = ss.transform(X_test)
+        X_test_t_ss = ss.transform(X_test_t)
+        X_test_f_ss = ss.transform(X_test_f)
 
-        # 各フラグごとにss,mm,rsのスケーリング
-        def scaling(X_train, X_test, X_test1,X_test2):
-
-            def ss(X_train, X_test,X_test1,X_test2):
-                # 標準化するよ
-                # 二次元配列で行う場合　axis = 0 で列ごとの処理が行われる→これがデフォルト
-                from sklearn import preprocessing
-                from sklearn.preprocessing import StandardScaler
-                ss = preprocessing.StandardScaler().fit(X_train)
-                # ss.fit(X_train)
-                # モデルを保存する
-                # ss_filename = 'finalized_ss.sav'
-                # pickle.dump(ss, open(ss_filename, 'wb'))
-                X_train_ss = ss.transform(X_train)
-                X_test_ss = ss.transform(X_test) #type()は'numpy.ndarray'
-                # preprocessing.scale(X)
-                X_test1_ss = ss.transform(X_test1)
-                X_test2_ss = ss.transform(X_test2)
-                return X_train_ss, X_test_ss, X_test1_ss, X_test2_ss
-
-            def mm(X_train, X_test,X_test1,X_test2):
-                # 正規化するよ
-                from sklearn import preprocessing
-                from sklearn.preprocessing import MinMaxScaler
-                mm = preprocessing.MinMaxScaler().fit(X_train)
-                # mm.fit(X_train)
-                # モデルを保存する
-                # mm_filename = 'finalized_mm.sav'
-                # pickle.dump(mm, open(mm_filename, 'wb'))
-                X_train_mm = mm.transform(X_train)
-                X_test_mm = mm.transform(X_test)
-                X_test1_mm = mm.transform(X_test1)
-                X_test2_mm =mm.transform(X_test2)
-                # preprocessing.minmax_scale(X) # 直接処理するもの
-                return X_train_mm, X_test_mm,X_test1_mm, X_test2_mm
-
-            def rs(X_train, X_test,X_test1,X_test2):
-                # 外れ値に強いやつ
-                from sklearn import preprocessing # このなかに処理がまとめて入ってるらしい
-                from sklearn.preprocessing import RobustScaler
-                rs = preprocessing.RobustScaler(quantile_range=(25., 75.)).fit(X_train)
-                # rs.fit(X_train)
-                # モデルを保存する
-                # rs_filename = 'finalized_rs.sav'
-                # pickle.dump(rs, open(rs_filename, 'wb'))
-                X_train_rs = rs.transform(X_train)
-                X_test_rs = rs.transform(X_test)
-                X_test1_rs = rs.transform(X_test1)
-                X_test2_rs = rs.transform(X_test2)
-                return X_train_rs, X_test_rs,X_test1_rs, X_test2_rs
-
-            #  目的関数Yは共通
-            # なし
-            X_train_ori, X_test_ori, X_test1_ori, X_test2_ori = X_train, X_test, X_test1,X_test2
-            # 標準化
-            X_train_ss, X_test_ss,X_test1_ss, X_test2_ss = ss(X_train, X_test,X_test1, X_test2)
-            # 正規化
-            X_train_mm, X_test_mm,X_test1_mm, X_test2_mm = mm(X_train, X_test, X_test1, X_test2)
-            # 外れ値？
-            X_train_rs, X_test_rs,X_test1_rs,X_test2_rs = rs(X_train, X_test, X_test1, X_test2)
-
-            return X_train_ori, X_test_ori, X_test1_ori, X_test2_ori, X_train_ss, X_test_ss,X_test1_ss, X_test2_ss,X_train_mm, X_test_mm,X_test1_mm, X_test2_mm, X_train_rs, X_test_rs,X_test1_rs,X_test2_rs
-
-        X_train_ori, X_test_ori, X_test1_ori, X_test2_ori,X_train_ss, X_test_ss,X_test1_ss, X_test2_ss,X_train_mm, X_test_mm,X_test1_mm, X_test2_mm, X_train_rs, X_test_rs,X_test1_rs,X_test2_rs = scaling(X_train, X_test, X_test1,X_test2)
-
-        # ひとまずここまで
-        def target(Y_train,Y_test):
-            y_train = pd.DataFrame(Y_train)
-            g_train = y_train.groupby("user")
-            train = pd.DataFrame(g_train.size().sort_values(ascending=False))
-            list_index_train = train.index.values
-            list_index_train.sort()
-
-            y_test = pd.DataFrame(Y_test)
-            g_test = y_test.groupby("user")
-            test = pd.DataFrame(g_test.size().sort_values(ascending=False))
-            list_index_test = test.index.values
-            list_index_test
-            return list_index_train, list_index_test
-
-        y_train, y_test = target(Y_train,Y_test)
+        # Yに含まれるuserのindexを作成➝用途はおそらくまあ，可視化の際のメモリ用だと思われる
+        def Y_target(Y):
+            y = pd.DataFrame(Y)
+            g = y.groupby("user")
+            target = pd.DataFrame(g.size().sort_values(ascending=False))
+            target_index = target.index.values
+            return target_index
+        train_target = Y_target(Y_test)
+        test_target = Y_target(Y_test)
 
         # matome
-        print('\nX_base:',X.shape)
-        print('Y_base:',Y.shape)
-        print('X_train:',X_train.shape)
-        print('Y_train:',Y_train.shape)
-        print('true_test:',X_test1.shape)
-        print('false_test:',X_test2.shape)
-    #     print('Y_test2:',Y_test2.shape)
-    #     print('Y_train:',Y_train.shape)
-        print('X_test:',X_test.shape)
-        print('Y_test:',Y_test.shape)
-        print('y_train:',y_train)
-        print('y_test:',y_test)
+        # conform.conf_matome(X, Y, X_train, Y_train, X_test, Y_test, X_test_t, X_test_f, Y_test_t, Y_test_f, train_target, test_target)
 
-        return X_train_ori, X_test_ori, X_test1_ori, X_test2_ori,X_train_ss, X_test_ss,X_test1_ss, X_test2_ss,X_train_mm, X_test_mm,X_test1_mm, X_test2_mm, X_train_rs, X_test_rs,X_test1_rs,X_test2_rs,Y_train, Y_test, y_train, y_test, X_train, Y_test1, Y_test2
+        return X_train_ss, X_test_ss, X_test_t_ss, X_test_f_ss, Y_train, Y_test, train_target, test_target, X_train, Y_test_t, Y_test_f
 
     else:
         print('None')
-        return 0, 0, 0, 0, 0, 0,0, 0,0, 0,0, 0, 0, 0,0,0,0, 0, 0, 0, 0,0,0
+        return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         pass
-
 
 if __name__ == "__main__":
     print('data_split_exp module')

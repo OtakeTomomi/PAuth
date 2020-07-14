@@ -1,19 +1,26 @@
 '''
-multi_flagをもとにデータを分割するクラス
+multi_flagをもとにデータを分割する関数
 if文多すぎて恐怖なんだが
 変換表
-a == 1
-b == 2
-c == 3
-d == 4
+a = 1:up
+b = 2:right
+c = 3:down
+d = 4:left
 '''
-import numpy as np
-import pandas as pd
-from pandas import DataFrame
 
-def fs(df):
-    df2 = df
-    for flag, sdf in df2.groupby('multi_flag'):
+# import pandas as pd
+# from pandas import DataFrame
+
+# frankdatasetにおけるflag_splitの略でfrank_fs
+def frank_fs(frank_df):
+    df = frank_df
+    '''
+    molti_flag列の11~44のflagの値ごとにgroupbyを行いまとめる
+    flagにmulti_flagの値(key) 
+    sdfに(value)
+    groupbyはイテレーション用のメソッドを持っているのでこれでkeyに基づいてデータを分割できる
+    '''
+    for flag, sdf in df.groupby('multi_flag'):
         sdf = sdf.reset_index(drop = True)
         if flag == 11:
             aa = sdf.drop('multi_flag', axis=1)
@@ -45,13 +52,13 @@ def fs(df):
             db = sdf.drop('multi_flag', axis=1)
         elif flag == 43:
             dc = sdf.drop('multi_flag', axis=1)
-        else:
+        elif flag == 44:
             dd = sdf.drop('multi_flag', axis=1)
     # flagごとのデータを返す
     return aa, ab, ac, ad, ba, bb, bc, bd, ca, cb, cc, cd, da, db, dc, dd
 
 if __name__ == "__main__":
-    # reading data
+    # データの読み込み
     import read_data
-    df = read_data.load_frank_data()
-    aa, ab, ac, ad, ba, bb, bc, bd, ca, cb, cc, cd, da, db, dc, dd = fs(df)
+    frank_df = read_data.load_frank_data()
+    aa, ab, ac, ad, ba, bb, bc, bd, ca, cb, cc, cd, da, db, dc, dd = frank_fs(frank_df)

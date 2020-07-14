@@ -18,7 +18,7 @@ def conf_data(sdf, sdf_f, sdf_f_sel, ls_sdf_f):
     print('select_hazure_data:', sdf_f_sel['user'].count())
     print('\n外れ値として扱うuser\n',ls_sdf_f)
 
-def conf_matome(X, Y, X_train, Y_train, X_test, Y_test, X_test_t, X_test_f, Y_test_t, Y_test_f, y_train, y_test):
+def conf_matome(X, Y, X_train, Y_train, X_test, Y_test, X_test_t, X_test_f, Y_test_t, Y_test_f, train_target, test_target):
     print('\nX_base:', X.shape)
     print('Y_base:', Y.shape)
     print('X_train:', X_train.shape)
@@ -29,8 +29,14 @@ def conf_matome(X, Y, X_train, Y_train, X_test, Y_test, X_test_t, X_test_f, Y_te
     print('false_X_test:', X_test_f.shape)
     print('true_Y_test:', Y_test_t.shape)
     print('false_Y_test:', Y_test_f.shape)
-    print('y_train:', y_train)
-    print('y_test:', y_test)
+    print('y_train:', train_target)
+    print('y_test:', test_target)
+
+def conf_outlier(st, st_f, st_f_us):
+    print('all:', st['user'].count())
+    print('all - select_data:', st_f['user'].count())
+    print('select_data:', st['user'].count() - st_f['user'].count())
+    print('select_hazure_data:', st_f_us['user'].count())
 
 
 if __name__ == "__main__":
