@@ -3,18 +3,18 @@
 条件：2ストロークの組み合わせ，分類器は1クラス分類器使用.
 '''
 
-import os
-import copy
-import pickle
+# import os
+# import copy
+# import pickle
 import numpy as np
 import pandas as pd
-from pandas import DataFrame
+# from pandas import DataFrame
 import matplotlib.pyplot as plt
 # from IPython.display import display
 
 # モデル
-import sklearn
-from sklearn import svm
+# import sklearn
+# from sklearn import svm
 from sklearn.svm import OneClassSVM
 # from sklearn.mixture import GaussianMixture
 # from sklearn.neighbors import KernelDensity
@@ -24,16 +24,15 @@ from sklearn.neighbors import LocalOutlierFactor
 
 #スケーリング
 from sklearn import preprocessing
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import RobustScaler
+# from sklearn.preprocessing import StandardScaler
+# from sklearn.preprocessing import MinMaxScaler
+# from sklearn.preprocessing import RobustScaler
 
-from sklearn.model_selection import train_test_split
 
 # その他
-import time
-from tqdm import tqdm
-from multiprocessing import cpu_count
+# import time
+# from tqdm import tqdm
+# from multiprocessing import cpu_count
 # from sklearn.externals import joblib
 
 
@@ -42,8 +41,23 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # データの読み込み
-from exp_module import read_data as rd
-frank_df = rd.load_frank_data()
+def load_frank_data():
+    '''
+    expdata.csvの読み込み
+    'flag','user2','flag2','user_ave','flag_ave'の削除:107>>102
+    '''
+    # mainから呼び出すとき(basic)
+    # パスの指定は実行するプログラムの相対パスっぽい
+    df_ori = pd.read_csv("10_feature_selection/expdata.csv", sep = ",")
+    # 同モジュール内から呼び出すとき
+    # df_ori = pd.read_csv("../../10_feature_selection/expdata.csv", sep = ",")
+
+    # 不要なものを列で削除
+    df_drop = df_ori.drop({'Unnamed: 0', 'flag', 'user2','flag2', 'user_ave', 'flag_ave'}, axis = 1)
+
+    return df_drop
+
+frank_df = load_frank_data()
 
 # データのColumn取得
 df_column = frank_df.columns.values
@@ -96,94 +110,7 @@ selu_dd = sel_user_ffs(dd, user_n)
 # f11 = ds.DataSplitExpt(aa, selu_aa, user_n)
 
 from exp_module import conform
-
-def data_split(st, user_select, user_n):
-
-    '''
-    :param st: split_dataのことであり，multi_flagに基づいたデータの集合
-    :param user_select: stの中でも選択されたユーザのみのデータ
-    関係としては，st ∋　user_select
-    :param user_n: 選択されたユーザ
-    :return:
-    '''
-
-    # データ数が30以上あるか
-    if user_select['user'].count() >= 30:
-
-        # 説明変数Xと目的変数Yに分割
-        def X_Y(user_select):
-            X = user_select.drop("user", 1)
-            Y = user_select.user
-            return X, Y
-        X, Y = X_Y(user_select)
-
-        # 訓練データとテストデータに分割
-        X_train, X_test_t, Y_train, Y_test_t = train_test_split(X, Y, test_size=0.2, random_state=0, shuffle=True)
-
-        # テストデータの個数をカウント➝外れ値はテストデータ数と同じ数だけ用意する
-        Y_test_t_size = Y_test_t.count()
-
-        # 偽物(外れ値)のデータの選択
-        def outlier(st, user_n, Y_test_t_size):
-            '''
-            :param st:
-            :param user_n:
-            :param Y_test_t_size: テストデータの個数
-            :return: st_f:user_n以外のデータ，st_f_us:st_fの中からtestデータと同じ数だけ選択した偽物のデータ
-            '''
-            #user_n以外のuserを抽出
-            st_f = st[st['user'] != user_n]
-            #sstをシャッフル
-            st_f_shuffle = st_f.sample(frac=1, random_state=0).reset_index(drop=True)
-            #testデータと同じ数の外れ値を選択
-            st_f_select_outlier = st_f_shuffle.sample(n = Y_test_t_size, random_state=0)
-            return st_f, st_f_select_outlier
-        st_f, st_f_us = outlier(st, user_n, Y_test_t_size)
-
-        # 外れ値の個数などの確認をしたい場合
-        # conform.conf_outlier(st, st_f, st_f_us)
-
-        # testデータと外れ値データの結合
-        st_f_us_number = list(st_f_us['user'])
-        print('\n外れ値として扱うuserのnumber\n', st_f_us_number)
-
-        # userをすべて０に変更
-        user_n_change = st_f_us.copy()
-        user_0 = user_n_change.replace({'user': st_f_us_number},0)
-
-        # 偽物のデータを説明変数と目的変数に分割
-        X_test_f, Y_test_f = X_Y(user_0)
-
-        # testデータの結合
-        X_test = pd.concat([X_test_t, X_test_f]).reset_index(drop=True)
-        Y_test = pd.concat([Y_test_t, Y_test_f]).reset_index(drop=True)
-
-        # スケーリング
-        ss = preprocessing.StandardScaler().fit(X_train)
-        X_train_ss = ss.transform(X_train)
-        X_test_ss = ss.transform(X_test)
-        X_test_t_ss = ss.transform(X_test_t)
-        X_test_f_ss = ss.transform(X_test_f)
-
-        # Yに含まれるuserのindexを作成➝用途はおそらくまあ，可視化の際のメモリ用だと思われる
-        def Y_target(Y):
-            y = pd.DataFrame(Y)
-            g = y.groupby("user")
-            target = pd.DataFrame(g.size().sort_values(ascending=False))
-            target_index = target.index.values
-            return target_index
-        train_target = Y_target(Y_test)
-        test_target = Y_target(Y_test)
-
-        # matome
-        # conform.conf_matome(X, Y, X_train, Y_train, X_test, Y_test, X_test_t, X_test_f, Y_test_t, Y_test_f, train_target, test_target)
-
-        return X_train_ss, X_test_ss, X_test_t_ss, X_test_f_ss, Y_train, Y_test, train_target, test_target, X_train, Y_test_t, Y_test_f
-
-    else:
-        print('None')
-        return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-        pass
+from exp_module import data_split_exp as dse
 
 def result(normal_result, anomaly_result, Y_true, prediction, y_score):
     print("\n正常データのスコア\n", normal_result)
@@ -225,7 +152,10 @@ def result(normal_result, anomaly_result, Y_true, prediction, y_score):
 
     plt.show()
 
-from sklearn.model_selection import train_test_split
+
+from sklearn.model_selection import KFold
+# from sklearn.model_selection import GridSearchCV
+
 
 # 評価
 from sklearn import metrics
@@ -238,16 +168,15 @@ from sklearn.metrics import precision_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 
-from sklearn.model_selection import cross_val_predict
-from sklearn.model_selection import cross_val_score
-from sklearn.metrics import matthews_corrcoef
+# from sklearn.model_selection import cross_val_predict
+# from sklearn.model_selection import cross_val_score
+# from sklearn.metrics import matthews_corrcoef
 
-from sklearn.feature_selection import RFE
-from sklearn.decomposition import PCA
-import mglearn
+# from sklearn.feature_selection import RFE
+# from sklearn.decomposition import PCA
+# import mglearn
 # import japanize_matplotlib
-from mpl_toolkits.mplot3d import Axes3D
-
+# from mpl_toolkits.mplot3d import Axes3D
 
 def far_frr(normal_result, anomaly_result):
     TP = np.count_nonzero(normal_result == 1)
@@ -259,10 +188,17 @@ def far_frr(normal_result, anomaly_result):
     BER = 0.5 * (FP / (TN + FP) + FN / (FN + TP))
     return FRR, FAR, BER
 
-
-def hazu(st, X_val_no, Y_val_no, user_n, scale_n, X_train, columns):
+def hazu(st, X_val_no, Y_val_no, user_n, X_train, columns):
     '''
-    valに外れ値データをつけたい
+
+    :param st: multi_flagに基づいた各データの集まり
+    :param X_val_no: X_train_ssの内の検証用データ
+    :param Y_val_no: Y_train_ssの内の検証用データ
+    :param user_n: ユーザの番号
+    :param X_train: 各フラグのうちuser_nで抽出されたX_trainのスケーリング前のもの
+    スケーリングの範囲を合わせるために利用
+    :param columns: Column
+    :return: 外れ値を付与した検証用データ
     '''
 
     def hazure2(st, X_val_no, Y_val_no, user_n):
@@ -277,42 +213,20 @@ def hazu(st, X_val_no, Y_val_no, user_n, scale_n, X_train, columns):
     user_n_change = sst_select_outlier.copy()
     user_0 = user_n_change.replace({'user': list2}, 0)
 
-    def X_Y(user_select):
-        X = user_select.drop("user", 1)
-        Y = user_select.user
-        return X, Y
-
-    X_val_ano, Y_val_ano = X_Y(user_0)
+    X_val_ano, Y_val_ano = dse.X_Y(user_0)
 
     # スケーリング
-    if scale_n == 0:
-        result = X_val_ano
-        # print('0')
-    elif scale_n == 1:
-        ss = preprocessing.StandardScaler().fit(X_train)
-        result1 = ss.transform(X_val_ano)
-        result = pd.DataFrame(result1)
-        result.columns = columns
-        # print('1')
-    elif scale_n == 2:
-        mm = preprocessing.MinMaxScaler().fit(X_train)
-        result1 = mm.transform(X_val_ano)
-        result = pd.DataFrame(result1)
-        result.columns = columns
-        # print('2')
-    else:
-        rs = preprocessing.RobustScaler(quantile_range=(25., 75.)).fit(X_train)
-        result1 = rs.transform(X_val_ano)
-        result = pd.DataFrame(result1)
-        result.columns = columns
-        # print('3')
+    ss = preprocessing.StandardScaler().fit(X_train)
+    result1 = ss.transform(X_val_ano)
+    result = pd.DataFrame(result1)
+    result.columns = columns
 
     # testデータの結合
     X_val = pd.concat([X_val_no, result]).reset_index(drop=True)
     Y_val1 = pd.concat([Y_val_no, Y_val_ano]).reset_index(drop=True)
 
     Y_val2 = Y_val1.copy()
-    Y_val = Y_val2.replace({self.user_n: 1, 0: -1})
+    Y_val = Y_val2.replace({user_n: 1, 0: -1})
 
     return X_val, Y_val, X_val_no, result
 
@@ -323,44 +237,109 @@ class Experiment():
         self.user_select = user_select
         self.user_n = user_n
         self.flag_n = flag_n
-        self.column = st.columns.values
 
-    def data(self):
         self.X_train_ss, self.X_test_ss, self.X_test_t_ss, self.X_test_f_ss, self.Y_train, self.Y_test, self.train_target, \
-        self.test_target, self.X_train, self.Y_test_t, self.Y_test_f = data_split(self.st, self.user_select, self.user_n)
+        self.test_target, self.X_train, self.Y_test_t, self.Y_test_f = dse.data_split(self.st, self.user_select, self.user_n)
+
+        self.columns = self.X_train.columns.values
 
     def closs_val(self):
+
+        try:
+
+            # モデル
+            models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=0.1),
+                      IsolationForest(n_estimators=1, contamination='auto', behaviour='new', random_state=0),
+                      OneClassSVM(nu=0.1, kernel="rbf"),
+                      EllipticEnvelope(contamination=0.1, random_state=0)]
+            scores = {'LocalOutlierFactor': {}, 'IsolationForest': {}, 'OneClassSVM': {}, 'EllipticEnvelope': {}}
+            scores_test = {}
+
+            # 絶対要らない気がするので再確認
+            Y_true1 = self.Y_test.copy()
+            Y_true = Y_true1.replace({self.user_n: 1, 0: -1})
+
+            # k分割交差検証 k=10
+            k = 10
+            kf = KFold(n_splits=k, shuffle=True, random_state=0)
+            for model in models:
+                X_train_ss2 = pd.DataFrame(self.X_train_ss, columns = self.columns)
+                count = 0
+                for train_index, val_index in kf.split(X_train_ss2, self.Y_train):
+                    model.fit(X_train_ss2.iloc[train_index])
+                    # 検証用データに偽物のデータを付与
+                    X_val, Y_val, X_val_t, X_val_f = hazu(self.st, X_train_ss2.iloc[val_index],
+                                                             self.Y_train.iloc[val_index], self.user_n,
+                                                             self.X_train, self.columns)
+                    # 予測
+                    val_pred = model.predict(X_val)
+                    normal_result = model.predict(X_val_t)
+                    anomaly_result = model.predict(X_val_f)
+
+                    # 評価
+                    FAR, FRR, BER = far_frr(normal_result, anomaly_result)
+
+                    scores[str(model).split('(')[0]][count] = {'Accuracy': accuracy_score(y_true=Y_val, y_pred=val_pred),
+                                                               'Precision': precision_score(Y_val, val_pred),
+                                                               'Recall': recall_score(Y_val, val_pred),
+                                                               'F1': f1_score(Y_val, val_pred),
+                                                               'AUC': roc_auc_score(Y_val, model.decision_function(X_val)),
+                                                               'FAR': FAR, 'FRR': FRR, 'BER': BER}
+                    count += 1
+            df_index = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER']
+            # df = scores.gropby(level=0).apply(lambda scores: scores.xs(scores.name).clump_thickness.to_dict()).to_dict()
+            df = pd.DataFrame(scores)
+            print(df.T)
+            # ゴリ押しプログラム書くしかない(泣)
+            # model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
+            # for m_i in model_index:
+            #     a = np.zeros((4, 8))
+            #
+            #     for df_i in df_index:
+            #         b = 0
+            #         for i in range(10):
+            #             b += scores[m_i][i][df_i]
+            #         a
+            # index = [['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope'],[]]
+        except AttributeError:
+            print('None')
+
 
 
 print('\n-----------------------------------------------------------------\na + a\n-----------------------------------------------------------------')
 experiment_aa = Experiment(aa, selu_aa, user_n, 11)
-print('\n-----------------------------------------------------------------\na + b\n-----------------------------------------------------------------')
-experiment_ab = Experiment(ab, selu_ab, user_n, 12)
-print('\n-----------------------------------------------------------------\na + c\n-----------------------------------------------------------------')
-experiment_ac = Experiment(ac, selu_ac, user_n, 13)
-print('\n-----------------------------------------------------------------\na + d\n-----------------------------------------------------------------')
-experiment_ad = Experiment(ad, selu_ad, user_n, 14)
-print('\n-----------------------------------------------------------------\nb + a\n-----------------------------------------------------------------')
-experiment_ba = Experiment(ba, selu_ba, user_n, 21)
-print('\n-----------------------------------------------------------------\nb + b\n-----------------------------------------------------------------')
-experiment_bb = Experiment(bb, selu_bb, user_n, 22)
-print('\n-----------------------------------------------------------------\nb + c\n-----------------------------------------------------------------')
-experiment_bc = Experiment(bc, selu_bc, user_n, 23)
-print('\n-----------------------------------------------------------------\nb + d\n-----------------------------------------------------------------')
-experiment_bd = Experiment(bd, selu_bd, user_n, 24)
-print('\n-----------------------------------------------------------------\nc + a\n-----------------------------------------------------------------')
-experiment_ca = Experiment(ca, selu_ca, user_n, 31)
-print('\n-----------------------------------------------------------------\nc + b\n-----------------------------------------------------------------')
-experiment_cb = Experiment(cb, selu_cb, user_n, 32)
-print('\n-----------------------------------------------------------------\nc + c\n-----------------------------------------------------------------')
-experiment_cc = Experiment(cc, selu_cc, user_n, 33)
-print('\n-----------------------------------------------------------------\nc + d\n-----------------------------------------------------------------')
-experiment_cd = Experiment(cd, selu_cd, user_n, 34)
-print('\n-----------------------------------------------------------------\nd + a\n-----------------------------------------------------------------')
-experiment_da = Experiment(da, selu_da, user_n, 41)
-print('\n-----------------------------------------------------------------\nd + b\n-----------------------------------------------------------------')
-experiment_db = Experiment(db, selu_db, user_n, 42)
-print('\n-----------------------------------------------------------------\nd + c\n-----------------------------------------------------------------')
-experiment_dc = Experiment(dc, selu_dc, user_n, 43)
-print('\n-----------------------------------------------------------------\nd + d\n-----------------------------------------------------------------')
-experiment_dd = Experiment(dd, selu_dd, user_n, 44)
+# print('\n-----------------------------------------------------------------\na + b\n-----------------------------------------------------------------')
+# experiment_ab = Experiment(ab, selu_ab, user_n, 12)
+# print('\n-----------------------------------------------------------------\na + c\n-----------------------------------------------------------------')
+# experiment_ac = Experiment(ac, selu_ac, user_n, 13)
+# print('\n-----------------------------------------------------------------\na + d\n-----------------------------------------------------------------')
+# experiment_ad = Experiment(ad, selu_ad, user_n, 14)
+# print('\n-----------------------------------------------------------------\nb + a\n-----------------------------------------------------------------')
+# experiment_ba = Experiment(ba, selu_ba, user_n, 21)
+# print('\n-----------------------------------------------------------------\nb + b\n-----------------------------------------------------------------')
+# experiment_bb = Experiment(bb, selu_bb, user_n, 22)
+# print('\n-----------------------------------------------------------------\nb + c\n-----------------------------------------------------------------')
+# experiment_bc = Experiment(bc, selu_bc, user_n, 23)
+# print('\n-----------------------------------------------------------------\nb + d\n-----------------------------------------------------------------')
+# experiment_bd = Experiment(bd, selu_bd, user_n, 24)
+# print('\n-----------------------------------------------------------------\nc + a\n-----------------------------------------------------------------')
+# experiment_ca = Experiment(ca, selu_ca, user_n, 31)
+# print('\n-----------------------------------------------------------------\nc + b\n-----------------------------------------------------------------')
+# experiment_cb = Experiment(cb, selu_cb, user_n, 32)
+# print('\n-----------------------------------------------------------------\nc + c\n-----------------------------------------------------------------')
+# experiment_cc = Experiment(cc, selu_cc, user_n, 33)
+# print('\n-----------------------------------------------------------------\nc + d\n-----------------------------------------------------------------')
+# experiment_cd = Experiment(cd, selu_cd, user_n, 34)
+# print('\n-----------------------------------------------------------------\nd + a\n-----------------------------------------------------------------')
+# experiment_da = Experiment(da, selu_da, user_n, 41)
+# print('\n-----------------------------------------------------------------\nd + b\n-----------------------------------------------------------------')
+# experiment_db = Experiment(db, selu_db, user_n, 42)
+# print('\n-----------------------------------------------------------------\nd + c\n-----------------------------------------------------------------')
+# experiment_dc = Experiment(dc, selu_dc, user_n, 43)
+# print('\n-----------------------------------------------------------------\nd + d\n-----------------------------------------------------------------')
+# experiment_dd = Experiment(dd, selu_dd, user_n, 44)
+
+
+experiment_aa.closs_val()
+# experiment_cc.closs_val()
+# experiment_bb.closs_val()
