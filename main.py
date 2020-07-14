@@ -77,7 +77,7 @@ def sel_user_ffs(sdf, user_n):
     # print(ff.size())
     return sdf_sel_u
 
-# コマンドラインからどのユーザを選択するか選ぶ
+# コマンドラインからどのユーザを選択するか選ぶ➝後々自動化
 user_n = int(input('\nユーザの選択1~41 >> '))
 
 # 各multi_flagごとに選択したユーザを抽出する
@@ -141,10 +141,7 @@ def result(normal_result, anomaly_result, Y_true, prediction, y_score):
 
     plt.show()
 
-
 from sklearn.model_selection import KFold
-# from sklearn.model_selection import GridSearchCV
-
 
 # 評価
 from sklearn import metrics
@@ -159,10 +156,6 @@ from sklearn.metrics import classification_report
 
 # データ分割用
 from exp_module import data_split_exp as dse
-
-# from sklearn.model_selection import cross_val_predict
-# from sklearn.model_selection import cross_val_score
-# from sklearn.metrics import matthews_corrcoef
 
 # from sklearn.feature_selection import RFE
 # from sklearn.decomposition import PCA
@@ -225,20 +218,26 @@ def hazu(st, X_val_no, Y_val_no, user_n, X_train, columns):
 class Experiment():
 
     def __init__(self, st, user_select, user_n, flag_n):
-        self.st = st
-        self.user_select = user_select
-        self.user_n = user_n
-        self.flag_n = flag_n
-        # 実験用にデータを訓練データ，検証データ，テストデータにわける
-        self.X_train_ss, self.X_test_ss, self.X_test_t_ss, self.X_test_f_ss, self.Y_train, self.Y_test, self.train_target, \
-        self.test_target, self.X_train, self.Y_test_t, self.Y_test_f = dse.data_split(self.st, self.user_select, self.user_n)
+        memori = ['0', 'a', 'b', 'c', 'd']
+        print(
+            f'\n-----------------------------------------------------------------\n{memori[flag_n // 10]} + {memori[flag_n % 10]}\n-----------------------------------------------------------------')
+        try:
+            self.st = st
+            self.user_select = user_select
+            self.user_n = user_n
+            self.flag_n = flag_n
+            # 実験用にデータを訓練データ，検証データ，テストデータにわける
+            self.X_train_ss, self.X_test_ss, self.X_test_t_ss, self.X_test_f_ss, self.Y_train, self.Y_test, self.train_target, \
+            self.test_target, self.X_train, self.Y_test_t, self.Y_test_f, self.st_f_us_number = dse.data_split(self.st, self.user_select, self.user_n)
 
-        self.columns = self.X_train.columns.values
+            self.columns = self.X_train.columns.values
+        except AttributeError:
+            pass
 
     def closs_val(self):
-
         try:
-
+            if self.st_f_us_number != 0:
+                print('\n外れ値として扱うuserのnumber\n', self.st_f_us_number, '\n')
             # モデル
             models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=0.1),
                       IsolationForest(n_estimators=1, contamination='auto', behaviour='new', random_state=0),
@@ -247,7 +246,7 @@ class Experiment():
             scores = {'LocalOutlierFactor': {}, 'IsolationForest': {}, 'OneClassSVM': {}, 'EllipticEnvelope': {}}
             scores_test = {}
 
-            # 絶対要らない気がするので再確認
+            # 絶対要らない気がするので再確認←要らない
             Y_true1 = self.Y_test.copy()
             Y_true = Y_true1.replace({self.user_n: 1, 0: -1})
 
@@ -278,61 +277,57 @@ class Experiment():
                                                                'AUC': roc_auc_score(Y_val, model.decision_function(X_val)),
                                                                'FAR': FAR, 'FRR': FRR, 'BER': BER}
                     count += 1
-            df_index = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER']
-            # df = scores.gropby(level=0).apply(lambda scores: scores.xs(scores.name).clump_thickness.to_dict()).to_dict()
-            df = pd.DataFrame(scores)
-            print(df.T)
-            # print(scores['LocalOutlierFactor'][0]['Accuracy'])
-            # ゴリ押しプログラム書くしかない(泣)
+            # ゴリ押しで書くしかない(泣)
             model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
+            result_index = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER']
             a = np.zeros((4, 8))
             for i, m_i in enumerate(model_index):
-                for j, df_i in enumerate(df_index):
+                for j, df_i in enumerate(result_index):
                     b = 0
                     for m in range(k):
                         b += scores[m_i][m][df_i]
                     a[i][j] = b/k
-            print(a)
-            # index = [['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope'],[]]
+            a_df = pd.DataFrame(a, index = model_index, columns = result_index)
+            print(a_df)
         except AttributeError:
-            print('None')
+            pass
 
 
 
-print('\n-----------------------------------------------------------------\na + a\n-----------------------------------------------------------------')
+
 experiment_aa = Experiment(aa, selu_aa, user_n, 11)
-# print('\n-----------------------------------------------------------------\na + b\n-----------------------------------------------------------------')
-# experiment_ab = Experiment(ab, selu_ab, user_n, 12)
-# print('\n-----------------------------------------------------------------\na + c\n-----------------------------------------------------------------')
-# experiment_ac = Experiment(ac, selu_ac, user_n, 13)
-# print('\n-----------------------------------------------------------------\na + d\n-----------------------------------------------------------------')
-# experiment_ad = Experiment(ad, selu_ad, user_n, 14)
-# print('\n-----------------------------------------------------------------\nb + a\n-----------------------------------------------------------------')
-# experiment_ba = Experiment(ba, selu_ba, user_n, 21)
-# print('\n-----------------------------------------------------------------\nb + b\n-----------------------------------------------------------------')
-# experiment_bb = Experiment(bb, selu_bb, user_n, 22)
-# print('\n-----------------------------------------------------------------\nb + c\n-----------------------------------------------------------------')
-# experiment_bc = Experiment(bc, selu_bc, user_n, 23)
-# print('\n-----------------------------------------------------------------\nb + d\n-----------------------------------------------------------------')
-# experiment_bd = Experiment(bd, selu_bd, user_n, 24)
-# print('\n-----------------------------------------------------------------\nc + a\n-----------------------------------------------------------------')
-# experiment_ca = Experiment(ca, selu_ca, user_n, 31)
-# print('\n-----------------------------------------------------------------\nc + b\n-----------------------------------------------------------------')
-# experiment_cb = Experiment(cb, selu_cb, user_n, 32)
-# print('\n-----------------------------------------------------------------\nc + c\n-----------------------------------------------------------------')
-# experiment_cc = Experiment(cc, selu_cc, user_n, 33)
-# print('\n-----------------------------------------------------------------\nc + d\n-----------------------------------------------------------------')
-# experiment_cd = Experiment(cd, selu_cd, user_n, 34)
-# print('\n-----------------------------------------------------------------\nd + a\n-----------------------------------------------------------------')
-# experiment_da = Experiment(da, selu_da, user_n, 41)
-# print('\n-----------------------------------------------------------------\nd + b\n-----------------------------------------------------------------')
-# experiment_db = Experiment(db, selu_db, user_n, 42)
-# print('\n-----------------------------------------------------------------\nd + c\n-----------------------------------------------------------------')
-# experiment_dc = Experiment(dc, selu_dc, user_n, 43)
-# print('\n-----------------------------------------------------------------\nd + d\n-----------------------------------------------------------------')
-# experiment_dd = Experiment(dd, selu_dd, user_n, 44)
-
-
 experiment_aa.closs_val()
-# experiment_cc.closs_val()
-# experiment_bb.closs_val()
+
+experiment_ab = Experiment(ab, selu_ab, user_n, 12)
+experiment_ab.closs_val()
+
+# experiment_ac = Experiment(ac, selu_ac, user_n, 13)
+
+# experiment_ad = Experiment(ad, selu_ad, user_n, 14)
+
+# experiment_ba = Experiment(ba, selu_ba, user_n, 21)
+
+experiment_bb = Experiment(bb, selu_bb, user_n, 22)
+experiment_bb.closs_val()
+
+# experiment_bc = Experiment(bc, selu_bc, user_n, 23)
+
+# experiment_bd = Experiment(bd, selu_bd, user_n, 24)
+
+# experiment_ca = Experiment(ca, selu_ca, user_n, 31)
+
+# experiment_cb = Experiment(cb, selu_cb, user_n, 32)
+
+experiment_cc = Experiment(cc, selu_cc, user_n, 33)
+experiment_cc.closs_val()
+
+# experiment_cd = Experiment(cd, selu_cd, user_n, 34)
+
+# experiment_da = Experiment(da, selu_da, user_n, 41)
+
+# experiment_db = Experiment(db, selu_db, user_n, 42)
+
+# experiment_dc = Experiment(dc, selu_dc, user_n, 43)
+
+experiment_dd = Experiment(dd, selu_dd, user_n, 44)
+experiment_dd.closs_val()
