@@ -3,12 +3,12 @@
 条件：2ストロークの組み合わせ，分類器は1クラス分類器使用.
 '''
 
-# import os
+import os
+import sys
 # import copy
 # import pickle
 import numpy as np
 import pandas as pd
-# from pandas import DataFrame
 import matplotlib.pyplot as plt
 # from IPython.display import display
 
@@ -24,15 +24,6 @@ from sklearn.neighbors import LocalOutlierFactor
 
 #スケーリング
 from sklearn import preprocessing
-# from sklearn.preprocessing import StandardScaler
-# from sklearn.preprocessing import MinMaxScaler
-# from sklearn.preprocessing import RobustScaler
-
-# その他
-# import time
-# from tqdm import tqdm
-# from multiprocessing import cpu_count
-# from sklearn.externals import joblib
 
 # データ確認用
 from exp_module import conform
@@ -40,6 +31,11 @@ from exp_module import conform
 # warning inogre code
 import warnings
 warnings.filterwarnings('ignore')
+
+# コマンドラインからどのユーザを選択するか選ぶ➝後々自動化
+# user_n = int(input('\nユーザの選択1~41 >> '))
+args = sys.argv
+user_n = int(args[1])
 
 # データの読み込み
 def load_frank_data():
@@ -50,8 +46,6 @@ def load_frank_data():
     # mainから呼び出すとき(basic)
     # パスの指定は実行するプログラムの相対パスっぽい
     df_ori = pd.read_csv("10_feature_selection/expdata.csv", sep = ",")
-    # 同モジュール内から呼び出すとき
-    # df_ori = pd.read_csv("../../10_feature_selection/expdata.csv", sep = ",")
 
     # 不要なものを列で削除
     df_drop = df_ori.drop({'Unnamed: 0', 'flag', 'user2','flag2', 'user_ave', 'flag_ave'}, axis = 1)
@@ -77,8 +71,6 @@ def sel_user_ffs(sdf, user_n):
     # print(ff.size())
     return sdf_sel_u
 
-# コマンドラインからどのユーザを選択するか選ぶ➝後々自動化
-user_n = int(input('\nユーザの選択1~41 >> '))
 
 # 各multi_flagごとに選択したユーザを抽出する
 selu_aa = sel_user_ffs(aa, user_n)
@@ -277,7 +269,10 @@ class Experiment():
                                                                'AUC': roc_auc_score(Y_val, model.decision_function(X_val)),
                                                                'FAR': FAR, 'FRR': FRR, 'BER': BER}
                     count += 1
-            # ゴリ押しで書くしかない(泣)
+
+            # 結果のまとめ
+            # Panelが廃止されたので，ゴリ押しな➝ぴえん案件？
+            # いまさらだけどDecimal型に変換して計算したほうが良かった？
             model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
             result_index = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER']
             a = np.zeros((4, 8))
@@ -289,11 +284,19 @@ class Experiment():
                     a[i][j] = b/k
             a_df = pd.DataFrame(a, index = model_index, columns = result_index)
             print(a_df)
+            # result.csvへ書き出し
+            def output_data(self,a,model_index, result_index):
+                os.makedirs('result', exist_ok=True)
+                user = pd.Series([self.user_n]*4, name='user')
+                flag = pd.Series([self.flag_n]*4, name='flag')
+                model = pd.Series(model_index, name='model')
+                result = pd.DataFrame(a, columns = result_index)
+                all_result = pd.concat([user, flag, model, result], axis=1)
+                all_result.to_csv('result/result.csv', mode = 'a', header = False, index=False)
+            output_data(self, a, model_index, result_index)
+            # print(aaa)
         except AttributeError:
             pass
-
-
-
 
 experiment_aa = Experiment(aa, selu_aa, user_n, 11)
 experiment_aa.closs_val()
@@ -307,8 +310,8 @@ experiment_ab.closs_val()
 
 # experiment_ba = Experiment(ba, selu_ba, user_n, 21)
 
-experiment_bb = Experiment(bb, selu_bb, user_n, 22)
-experiment_bb.closs_val()
+# experiment_bb = Experiment(bb, selu_bb, user_n, 22)
+# experiment_bb.closs_val()
 
 # experiment_bc = Experiment(bc, selu_bc, user_n, 23)
 
@@ -329,5 +332,5 @@ experiment_cc.closs_val()
 
 # experiment_dc = Experiment(dc, selu_dc, user_n, 43)
 
-experiment_dd = Experiment(dd, selu_dd, user_n, 44)
-experiment_dd.closs_val()
+# experiment_dd = Experiment(dd, selu_dd, user_n, 44)
+# experiment_dd.closs_val()
