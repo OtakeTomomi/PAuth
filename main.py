@@ -13,8 +13,6 @@ import matplotlib.pyplot as plt
 # from IPython.display import display
 
 # モデル
-# import sklearn
-# from sklearn import svm
 from sklearn.svm import OneClassSVM
 # from sklearn.mixture import GaussianMixture
 # from sklearn.neighbors import KernelDensity
@@ -32,8 +30,7 @@ from exp_module import conform
 import warnings
 warnings.filterwarnings('ignore')
 
-# コマンドラインからどのユーザを選択するか選ぶ➝後々自動化
-# user_n = int(input('\nユーザの選択1~41 >> '))
+# コマンドライン変数から値を受け取る
 args = sys.argv
 user_n = int(args[1])
 
@@ -93,6 +90,8 @@ selu_db = sel_user_ffs(db, user_n)
 selu_dc = sel_user_ffs(dc, user_n)
 selu_dd = sel_user_ffs(dd, user_n)
 
+
+# これは見直して必要なものだけ取り出す
 def result(normal_result, anomaly_result, Y_true, prediction, y_score):
     print("\n正常データのスコア\n", normal_result)
     print("\n異常データのスコア\n", anomaly_result)
@@ -149,6 +148,7 @@ from sklearn.metrics import classification_report
 # データ分割用
 from exp_module import data_split_exp as dse
 
+# PCAするときに必要かも
 # from sklearn.feature_selection import RFE
 # from sklearn.decomposition import PCA
 # import mglearn
@@ -163,6 +163,9 @@ def far_frr(normal_result, anomaly_result):
     FRR = FN / (FN + TP)
     FAR = FP / (TN + FP)
     BER = 0.5 * (FP / (TN + FP) + FN / (FN + TP))
+
+    # accuracy = ((TP+TN)/(TP+FN+FP+TN))
+    # print(accuracy)
     return FRR, FAR, BER
 
 def hazu(st, X_val_no, Y_val_no, user_n, X_train, columns):
@@ -212,7 +215,7 @@ class Experiment():
     def __init__(self, st, user_select, user_n, flag_n):
         memori = ['0', 'a', 'b', 'c', 'd']
         print(
-            f'\n-----------------------------------------------------------------\n{memori[flag_n // 10]} + {memori[flag_n % 10]}\n-----------------------------------------------------------------')
+            f'\n-----------------------------------------------------------------\n{user_n} : {memori[flag_n // 10]} + {memori[flag_n % 10]}\n-----------------------------------------------------------------')
         try:
             self.st = st
             self.user_select = user_select
@@ -270,8 +273,25 @@ class Experiment():
                                                                'FAR': FAR, 'FRR': FRR, 'BER': BER}
                     count += 1
 
+                # testデータにて汎化性能評価
+                model.fit(X_train_ss2)
+
+                test_pred = model.predict(self.X_test_ss)
+                test_normal_result = model.predict(self.X_test_t_ss)
+                test_anomaly_result = model.predict(self.X_test_f_ss)
+
+                t_FAR, t_FRR, t_BER = far_frr(test_normal_result, test_anomaly_result)
+
+                scores_test[str(model).split('(')[0]] = {'Accuracy': accuracy_score(y_true=Y_true, y_pred=test_pred),
+                                                         'Precision': precision_score(Y_true, test_pred),
+                                                         'Recall': recall_score(Y_true, test_pred),
+                                                         'F1': f1_score(Y_true, test_pred),
+                                                         'AUC': roc_auc_score(Y_true, model.decision_function(self.X_test_ss)),
+                                                         'FAR': t_FAR, 'FRR': t_FRR, 'BER': t_BER}
+
+
             # 結果のまとめ
-            # Panelが廃止されたので，ゴリ押しな➝ぴえん案件？
+            # Panelが廃止されたので，ゴリ押し感が否めない
             # いまさらだけどDecimal型に変換して計算したほうが良かった？
             model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
             result_index = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER']
@@ -283,18 +303,36 @@ class Experiment():
                         b += scores[m_i][m][df_i]
                     a[i][j] = b/k
             a_df = pd.DataFrame(a, index = model_index, columns = result_index)
+            print('交差検証k=10の結果')
             print(a_df)
+
             # result.csvへ書き出し
-            def output_data(self,a,model_index, result_index):
+            def output_data(self, a, model_index, result_index, text):
+                # フォルダがなければ自動的に作成
                 os.makedirs('result', exist_ok=True)
+                # Columnの作成
                 user = pd.Series([self.user_n]*4, name='user')
                 flag = pd.Series([self.flag_n]*4, name='flag')
+                performance = pd.Series([text]*4, name='performance')
                 model = pd.Series(model_index, name='model')
-                result = pd.DataFrame(a, columns = result_index)
-                all_result = pd.concat([user, flag, model, result], axis=1)
-                all_result.to_csv('result/result.csv', mode = 'a', header = False, index=False)
-            output_data(self, a, model_index, result_index)
-            # print(aaa)
+                # valとtestで条件指定してresult作成
+                if text == 'val':
+                    result = pd.DataFrame(a, columns = result_index)
+                else:
+                    print('\ntestデータでの結果')
+                    result = pd.DataFrame(scores_test).T
+                    print(result)
+                    result = result.reset_index()
+                    result = result.drop('index', 1)
+                # 全て結合
+                all_result = pd.concat([user, flag, performance, model, result], axis=1)
+                # 書き出し
+                all_result.to_csv(f'result/result_{text}.csv', mode='a', header=False, index=False)
+
+            # 交差検証の結果の書き出し
+            output_data(self, a, model_index, result_index, 'val')
+            # テストデータの結果の書き出し
+            output_data(self, scores_test, model_index, result_index, 'test')
         except AttributeError:
             pass
 
@@ -304,33 +342,44 @@ experiment_aa.closs_val()
 experiment_ab = Experiment(ab, selu_ab, user_n, 12)
 experiment_ab.closs_val()
 
-# experiment_ac = Experiment(ac, selu_ac, user_n, 13)
+experiment_ac = Experiment(ac, selu_ac, user_n, 13)
+experiment_ac.closs_val()
 
-# experiment_ad = Experiment(ad, selu_ad, user_n, 14)
+experiment_ad = Experiment(ad, selu_ad, user_n, 14)
+experiment_ad.closs_val()
 
-# experiment_ba = Experiment(ba, selu_ba, user_n, 21)
+experiment_ba = Experiment(ba, selu_ba, user_n, 21)
+experiment_ba.closs_val()
 
-# experiment_bb = Experiment(bb, selu_bb, user_n, 22)
-# experiment_bb.closs_val()
+experiment_bb = Experiment(bb, selu_bb, user_n, 22)
+experiment_bb.closs_val()
 
-# experiment_bc = Experiment(bc, selu_bc, user_n, 23)
+experiment_bc = Experiment(bc, selu_bc, user_n, 23)
+experiment_bc.closs_val()
 
-# experiment_bd = Experiment(bd, selu_bd, user_n, 24)
+experiment_bd = Experiment(bd, selu_bd, user_n, 24)
+experiment_bd.closs_val()
 
-# experiment_ca = Experiment(ca, selu_ca, user_n, 31)
+experiment_ca = Experiment(ca, selu_ca, user_n, 31)
+experiment_ca.closs_val()
 
-# experiment_cb = Experiment(cb, selu_cb, user_n, 32)
+experiment_cb = Experiment(cb, selu_cb, user_n, 32)
+experiment_cb.closs_val()
 
 experiment_cc = Experiment(cc, selu_cc, user_n, 33)
 experiment_cc.closs_val()
 
-# experiment_cd = Experiment(cd, selu_cd, user_n, 34)
+experiment_cd = Experiment(cd, selu_cd, user_n, 34)
+experiment_cd.closs_val()
 
-# experiment_da = Experiment(da, selu_da, user_n, 41)
+experiment_da = Experiment(da, selu_da, user_n, 41)
+experiment_da.closs_val()
 
-# experiment_db = Experiment(db, selu_db, user_n, 42)
+experiment_db = Experiment(db, selu_db, user_n, 42)
+experiment_db.closs_val()
 
-# experiment_dc = Experiment(dc, selu_dc, user_n, 43)
+experiment_dc = Experiment(dc, selu_dc, user_n, 43)
+experiment_dc.closs_val()
 
-# experiment_dd = Experiment(dd, selu_dd, user_n, 44)
-# experiment_dd.closs_val()
+experiment_dd = Experiment(dd, selu_dd, user_n, 44)
+experiment_dd.closs_val()
