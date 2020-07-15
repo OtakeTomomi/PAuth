@@ -1,13 +1,18 @@
-import subprocess, sys
+import subprocess
 from subprocess import PIPE
 
-# proc = subprocess.run("date", shell=True, stdout=PIPE, stderr=PIPE, text=True)
-# date = proc.stdout
-# print('STDOUT: {}'.format(date))
-for i in range(1,42):
+# 保存開始
+# subprocess.check_call(['script','text.txt'])
+
+for i in range(1,2):
     try:
         subprocess.check_call(['python','main.py',f'{i}'])
     except:
         print("subprocess.check_call() failed")
 
-# subprocess.run(['23'], input='23', encoding='UTF-8')
+# ターミナルの出力を.txtファイルに保存
+# subprocess.check_call(['exit'])
+
+
+# result.pyを実行
+# subprocess.check_call(['python','result.py'])
