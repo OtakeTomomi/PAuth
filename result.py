@@ -45,54 +45,26 @@ print(ct)
 '''
 # つづりわからん計算
 def calcuration(ct, ct_list,df, val_columns, model_index):
-    a = np.zeros((4, 8))
-    b = np.zeros((4, 8))
-    c = np.zeros((4, 8))
-    # d = np.zeros((4, 8))
-    # print(df['Accuracy'].xs([33, 'val', 'LocalOutlierFactor'], level=['flag', 'performance', 'model']))
-    # ct_mean = df['Accuracy'].xs([33, 'val', 'LocalOutlierFactor'], level=['flag', 'performance', 'model']).mean()
-    # print(ct_mean)
-    for i, model in enumerate(model_index):
-        for j, column in enumerate(val_columns[4:]):
-        # print(df[column].xs([33, 'val', 'LocalOutlierFactor'], level=['flag', 'performance', 'model']))
-            ct_mean = df[column].xs([33, 'val', model], level=['flag', 'performance', 'model']).mean()
-            # print(ct_mean)
-            a[i][j] = ct_mean
-            ct_max = df[column].xs([33, 'val', model], level=['flag', 'performance', 'model']).max()
-            b[i][j] = ct_max
-            ct_min = df[column].xs([33, 'val', model], level=['flag', 'performance', 'model']).min()
-            c[i][j] = ct_min
-            # ct_std = df[column].xs([ct_list[i], 'val', model], level=['flag', 'performance', 'model'])
-            # d[i][j] = ct_std
-            d = 0
-
-    return a, b, c, d
-a, b, c, d = calcuration(ct,ct_list,val_m_df,val_columns,model_index)
-
-print('平均')
-print(a)
-
-print('最大')
-print(b)
-
-print('最小')
-print(c)
-
-print('標準偏差')
-print(d)
-
-
-'''
-必要な変数
-・各フラグの個数
-
-必要な処理
-・各flagごとの各モデルをまとめる
-・平均を出す
-・最大値
-・最小値
-・標準偏差
-'''
-
-# 理想は結果を一発表示する
-# a = np.zeros((4, 8))
+    for k in ct_list:
+        a = np.zeros((4, 8))
+        b = np.zeros((4, 8))
+        c = np.zeros((4, 8))
+        d = np.zeros((4, 8))
+        for i, model in enumerate(model_index):
+            for j, column in enumerate(val_columns[4:]):
+                data = df[column].xs([k, 'val', model], level=['flag', 'performance', 'model'])
+                a[i][j] = data.mean()
+                b[i][j] = data.max()
+                c[i][j] = data.min()
+                d[i][j] = data.std()
+                # d = 0
+        print(f'{k}:{ct[k]}')
+        print('平均')
+        print(a)
+        print('最大')
+        print(b)
+        print('最小')
+        print(c)
+        print('標準偏差')
+        print(d)
+calcuration(ct,ct_list,val_m_df,val_columns,model_index)
