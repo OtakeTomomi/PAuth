@@ -19,8 +19,6 @@ test_df.columns = test_columns
 val_m_df = val_df.set_index(['user', 'flag', 'performance', 'model'])
 test_m_df = val_df.set_index(['user', 'flag', 'performance', 'model'])
 
-# print(val_m_df)
-# print(val_m_df.xs([33, 'val', 'LocalOutlierFactor'], level=['flag', 'performance', 'model']))
 
 
 # 各flagにおいてデータを有するユーザの数
@@ -32,24 +30,23 @@ def count_table(df):
         ct[i] = ct_n
     return ct, ct_list
 ct, ct_list = count_table(val_m_df)
-print(ct)
+# print(ct)
 
-# ct_list使用して各flagに対して結果を保有しいるユーザを抽出する
+# 書き出し用の処理
 '''
-あとで処理書いて
+どう分けるかが問題
 '''
-
+def write_data(df,model_index,val_columns, flag_n):
+    flag = pd.Series([flag_n] * 4, name='flag')
+    model = pd.Series(model_index, name='model')
+    df = pd.DataFrame(df, index=None)
+    re = pd.concat([flag, model, df], axis=1)
+    # print(df)
+    return df
 # 各flag × 各modelごとの結果を算出
-'''
-まさに草
-'''
-# つづりわからん計算
 def calcuration(ct, ct_list,df, val_columns, model_index):
     for k in ct_list:
-        a = np.zeros((4, 8))
-        b = np.zeros((4, 8))
-        c = np.zeros((4, 8))
-        d = np.zeros((4, 8))
+        a, b, c, d = np.zeros((4, 8)), np.zeros((4, 8)), np.zeros((4, 8)), np.zeros((4, 8))
         for i, model in enumerate(model_index):
             for j, column in enumerate(val_columns[4:]):
                 data = df[column].xs([k, 'val', model], level=['flag', 'performance', 'model'])
@@ -57,14 +54,21 @@ def calcuration(ct, ct_list,df, val_columns, model_index):
                 b[i][j] = data.max()
                 c[i][j] = data.min()
                 d[i][j] = data.std()
-                # d = 0
-        print(f'{k}:{ct[k]}')
-        print('平均')
-        print(a)
-        print('最大')
-        print(b)
-        print('最小')
-        print(c)
-        print('標準偏差')
-        print(d)
+
+        memori = ['0', 'a', 'b', 'c', 'd']
+        # 該当ユーザの抽出
+        n = df.xs([k, 'val', 'LocalOutlierFactor'], level=['flag', 'performance', 'model'])
+        menber = list(n.index.get_level_values('user'))
+        print(f'\n=============================='
+              f'\nflag : {memori[k//10]}+{memori[k%10]}, user数 : {ct[k]}人, 該当ユーザ : {menber}'
+              f'\n==============================')
+
+        print(f'\n平均')
+        write_data(a,model_index, val_columns[4:])
+        print(f'\n最大')
+        write_data(b, model_index, val_columns[4:])
+        print(f'\n最小')
+        write_data(c, model_index, val_columns[4:])
+        print(f'\n標準偏差')
+        write_data(d, model_index, val_columns[4:])
 calcuration(ct,ct_list,val_m_df,val_columns,model_index)
