@@ -1,7 +1,5 @@
 """
 STEP3 : 特徴量の計算を行う.
-修正開始
-結構余分なところ多めなのと変数わかりにくくて詰み
 """
 
 import pandas as pd
@@ -104,7 +102,7 @@ for user_n in range(1, 42, 1):
                               '2stroke_distance-', '2stroke_v-', '2stroke_a-', 'outside_d-', 'outside_v-', 'outside_a-']
         count2 = 0
         for i in range(len(dddp.index)-1):
-            # まさかのstroke_interは1つ目と2つ目のストロークの間の時間じゃなくて，1つ目のストロークの時間＋間の時間だったとさ(おこ)
+            # まさかのstroke_interは1つ目と2つ目のストロークの間の時間じゃなくて，1つ目のストロークの時間＋間の時間だった
             # 1つ目のストロークと2つ目のストロークの間の時間
             between1 = dddp['stroke_inter'].iloc[i] - dddp['stroke_duration'].iloc[i]
             # 2つ目のストロークと3つ目のストロークの間の時間
