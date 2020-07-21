@@ -317,7 +317,7 @@ class Experiment():
                 model = pd.Series(model_index, name='model')
                 # valとtestで条件指定してresult作成
                 if text == 'val':
-                    result = pd.DataFrame(a, columns = result_index)
+                    result = pd.DataFrame(a, columns=result_index)
                 else:
                     print('\ntestデータでの結果')
                     result = pd.DataFrame(scores_test).T

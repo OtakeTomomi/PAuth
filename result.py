@@ -19,8 +19,6 @@ test_df.columns = test_columns
 val_m_df = val_df.set_index(['user', 'flag', 'performance', 'model'])
 test_m_df = val_df.set_index(['user', 'flag', 'performance', 'model'])
 
-
-
 # 各flagにおいてデータを有するユーザの数
 def count_table(df):
     ct_list = sorted(list(set((df.index.get_level_values('flag')))))
@@ -36,12 +34,15 @@ ct, ct_list = count_table(val_m_df)
 '''
 どう分けるかが問題
 '''
-def write_data(df,model_index,val_columns, flag_n):
+def write_data(df,model_index,val_columns, flag_n, text):
     flag = pd.Series([flag_n] * 4, name='flag')
     model = pd.Series(model_index, name='model')
-    df = pd.DataFrame(df, index=None)
+    df = pd.DataFrame(df, index=model_index, columns=val_columns)
+    print(df)
+    df = df.reset_index()
+    df = df.drop('index', 1)
     re = pd.concat([flag, model, df], axis=1)
-    # print(df)
+    re.to_csv(f'result/result_{text}.csv', mode='a', header=False, index=False)
     return df
 # 各flag × 各modelごとの結果を算出
 def calcuration(ct, ct_list,df, val_columns, model_index):
@@ -59,16 +60,16 @@ def calcuration(ct, ct_list,df, val_columns, model_index):
         # 該当ユーザの抽出
         n = df.xs([k, 'val', 'LocalOutlierFactor'], level=['flag', 'performance', 'model'])
         menber = list(n.index.get_level_values('user'))
-        print(f'\n=============================='
+        print(f'\n===================================================================================================='
               f'\nflag : {memori[k//10]}+{memori[k%10]}, user数 : {ct[k]}人, 該当ユーザ : {menber}'
-              f'\n==============================')
-
+              f'\n====================================================================================================')
         print(f'\n平均')
-        write_data(a,model_index, val_columns[4:])
+        write_data(a, model_index, val_columns[4:], k, 'mean')
         print(f'\n最大')
-        write_data(b, model_index, val_columns[4:])
+        write_data(b, model_index, val_columns[4:], k, 'max')
         print(f'\n最小')
-        write_data(c, model_index, val_columns[4:])
+        write_data(c, model_index, val_columns[4:], k, 'min')
         print(f'\n標準偏差')
-        write_data(d, model_index, val_columns[4:])
+        write_data(d, model_index, val_columns[4:], k, 'std')
+
 calcuration(ct,ct_list,val_m_df,val_columns,model_index)
