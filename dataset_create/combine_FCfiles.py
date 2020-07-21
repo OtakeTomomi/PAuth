@@ -1,5 +1,6 @@
 """
 その4 : FC_doc内の全てのcsvファイルを一つに結合する
+
 """
 import pandas as pd
 import glob

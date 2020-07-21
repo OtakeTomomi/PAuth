@@ -1,6 +1,5 @@
 """
 その1 : userごとにデータを分割
-
 featMat.csv is the feature data extracted from the original data.
 add it is the data extracted by the creator.
 This program splits featMat.csv by user.

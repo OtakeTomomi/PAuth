@@ -1,5 +1,5 @@
 """
-その5 : combine_FCfiles.csvにflag情報を付与するのが目的.
+その5 : combine_FCfiles.csvにflag情報を付与するのが目的
 """
 
 import pandas as pd

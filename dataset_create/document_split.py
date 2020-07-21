@@ -6,7 +6,6 @@
 5: Image comparison game
 6: Wikipedia article
 7: Image comparison game
-
 doc idごとで実験時間が別れていそうなのでこれも考慮してデータのきりわけ
 
 その2 : ドキュメントごとに分割.
