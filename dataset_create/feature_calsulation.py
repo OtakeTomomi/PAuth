@@ -97,48 +97,58 @@ for user_n in range(1, 42, 1):
                             'ave_direction_ave', 'length_trajectory_ave', 'ratio_ete_ave', 'ave_v_ave',
                             '5points_m_acc_ave', 'm_stroke_press_ave', 'm_stroke_area_cover_ave', 'finger_orien_ave',
                             'cd_finger_orien_ave', 'phone_orien_ave']
-        #
+        # 追加する新しい特徴を保存する枠
         add_features = {}
+        # これは直接は使用しないけど内訳を確認したい時用
         add_features_lists = ['2stroke_time-', 'd_stroke_inter-', 'v_stroke_inter-', 'a_stroke_inter-',
-                              '2stroke_distance-', '2stroke_v-', '2stroke_a-', 'outer_d-', 'outer_v-', 'outer_a-']
-
+                              '2stroke_distance-', '2stroke_v-', '2stroke_a-', 'outside_d-', 'outside_v-', 'outside_a-']
         count2 = 0
         for i in range(len(dddp.index)-1):
-            '''
-            まさかのstroke_interは1つ目と2つ目のストロークの間の時間じゃなくて，1つ目のストロークの時間＋間の時間だったとさ(おこ)
-            '''
-            # between1 = dddp['stroke_inter'].iloc[i] - dddp['stroke_duration'].iloc[i])
-            # between2 = dddp['stroke_inter'].iloc[i+1] - dddp['stroke_duration'].iloc[i+1])
-            # a2 = (dddp['stroke_duration'].iloc[i] + between1 + (dddp['stroke_duration'].iloc[i+1]))
-            a2 = (dddp['stroke_duration'].iloc[i] +
-                  (dddp['stroke_inter'].iloc[i+1]) +
-                  (dddp['stroke_duration'].iloc[i+1]))
+            # まさかのstroke_interは1つ目と2つ目のストロークの間の時間じゃなくて，1つ目のストロークの時間＋間の時間だったとさ(おこ)
+            # 1つ目のストロークと2つ目のストロークの間の時間
+            between1 = dddp['stroke_inter'].iloc[i] - dddp['stroke_duration'].iloc[i]
+            # 2つ目のストロークと3つ目のストロークの間の時間
+            between2 = dddp['stroke_inter'].iloc[i] - dddp['stroke_duration'].iloc[i]
 
-            b2 = math.sqrt(pow(((dddp['start_x'].iloc[i+1]) - (dddp['stop_x'].iloc[i])), 2) +
-                           pow(((dddp['start_y'].iloc[i+1]) - (dddp['stop_y'].iloc[i])), 2))
+            # 合計ストローク時間
+            D_total = (dddp['stroke_duration'].iloc[i] + between1 + (dddp['stroke_duration'].iloc[i+1]))
+            # a2 = (dddp['stroke_duration'].iloc[i] +
+            # (dddp['stroke_inter'].iloc[i + 1]) + (dddp['stroke_duration'].iloc[i + 1]))
 
-            v = b2 / dddp['stroke_inter'].iloc[i]
+            # ストローク間の距離
+            d_inter = (math.sqrt(pow(((dddp['start_x'].iloc[i+1]) - (dddp['stop_x'].iloc[i])), 2) +
+                                 pow(((dddp['start_y'].iloc[i+1]) - (dddp['stop_y'].iloc[i])), 2)))
+            # ストローク間の速度
+            v_inter = d_inter / between1
 
-            d2 = v / dddp['stroke_inter'].iloc[i]
+            # ストローク間の加速度
+            a_inter = v_inter / between1
 
-            e2 = (math.sqrt(pow(((dddp['stop_x'].iloc[i]) - (dddp['start_x'].iloc[i])), 2) +
-                            pow(((dddp['stop_y'].iloc[i]) - (dddp['start_y'].iloc[i])), 2)) + b2 +
-                  math.sqrt(pow(((dddp['stop_x'].iloc[i+1]) - (dddp['start_x'].iloc[i+1])), 2) +
-                            pow(((dddp['stop_y'].iloc[i+1]) - (dddp['start_y'].iloc[i+1])), 2)))
-            v2 = e2 / a2
+            # 2つのストロークの合計の距離(長さ)
+            d_sum = (math.sqrt(pow(((dddp['stop_x'].iloc[i]) - (dddp['start_x'].iloc[i])), 2) +
+                               pow(((dddp['stop_y'].iloc[i]) - (dddp['start_y'].iloc[i])), 2)) +
+                     d_inter +
+                     math.sqrt(pow(((dddp['stop_x'].iloc[i+1]) - (dddp['start_x'].iloc[i+1])), 2) +
+                               pow(((dddp['stop_y'].iloc[i+1]) - (dddp['start_y'].iloc[i+1])), 2)))
+            # 2つのストロークにおける速度
+            v_outer = d_sum / D_total
 
-            g2 = v2 / a2
+            # 2つのストロークにおける加速度
+            a_outer = v_outer / D_total
 
-            ee2 = math.sqrt(pow(((dddp['stop_x'].iloc[i+1]) - (dddp['start_x'].iloc[i])), 2) +
-                            pow(((dddp['stop_y'].iloc[i+1]) - (dddp['start_y'].iloc[i])), 2))
+            # 2つのストロークの開始点と終了点の距離
+            d_outside = (math.sqrt(pow(((dddp['stop_x'].iloc[i+1]) - (dddp['start_x'].iloc[i])), 2) +
+                                   pow(((dddp['stop_y'].iloc[i+1]) - (dddp['start_y'].iloc[i])), 2)))
+            # 2つのストロークの開始点と終了点の距離における速度
+            v_outside = d_outside / D_total
 
-            vv2 = ee2 / a2
+            # 2つのストロークの開始点と終了点の距離における加速度
+            a_outside = v_outside / D_total
 
-            gg2 = vv2 / a2
-
-            add_features[count2] = {'2stroke_time': a2, 'd_stroke_inter': b2, 'v_stroke_inter': v, 'a_stroke_inter': d2,
-                                    '2stroke_distance': e2, '2stroke_v': v2, '2stroke_a': g2, 'outer_d': ee2,
-                                    'outer_v': vv2, 'outer_a': gg2}
+            add_features[count2] = {'2stroke_time': D_total, 'd_stroke_inter': d_inter, 'v_stroke_inter': v_inter,
+                                    'a_stroke_inter': a_inter, '2stroke_distance': d_sum,
+                                    '2stroke_v': v_outer, '2stroke_a': a_outer, 'outside_d': d_outside,
+                                    'outside_v': v_outside, 'outside_a': a_outside}
             count2 += 1
 
         # 新しく算出した特徴量をデータフレームに変換
