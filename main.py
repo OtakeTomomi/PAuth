@@ -1,7 +1,7 @@
-'''
+"""
 メインの実験プログラムのつもり
 条件：2ストロークの組み合わせ，分類器は1クラス分類器使用.
-'''
+"""
 
 import os
 import sys
@@ -9,7 +9,7 @@ import sys
 # import pickle
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 # from IPython.display import display
 
 # モデル
@@ -20,11 +20,35 @@ from sklearn.ensemble import IsolationForest
 from sklearn.covariance import EllipticEnvelope
 from sklearn.neighbors import LocalOutlierFactor
 
-#スケーリング
+# スケーリング
 from sklearn import preprocessing
 
 # データ確認用
-from exp_module import conform
+# from exp_module import conform
+
+# PCAするときに必要かも
+# from sklearn.feature_selection import RFE
+# from sklearn.decomposition import PCA
+# import mglearn
+# import japanize_matplotlib
+# from mpl_toolkits.mplot3d import Axes3D
+
+from sklearn.model_selection import KFold
+
+# 評価
+# from sklearn import metrics
+from sklearn.metrics import f1_score
+# from sklearn.metrics import roc_curve
+from sklearn.metrics import recall_score
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import precision_score
+# from sklearn.metrics import confusion_matrix
+# from sklearn.metrics import classification_report
+
+# データ分割用
+from exp_module import data_split_exp as dse
+from exp_module import flag_split
 
 # warning inogre code
 import warnings
@@ -34,20 +58,20 @@ warnings.filterwarnings('ignore')
 args = sys.argv
 user_n = int(args[1])
 
+
 # データの読み込み
 def load_frank_data():
-    '''
+    """
     expdata.csvの読み込み
     'flag','user2','flag2','user_ave','flag_ave'の削除:107>>102
-    '''
+    """
     # mainから呼び出すとき(basic)
     # パスの指定は実行するプログラムの相対パスっぽい
-    df_ori = pd.read_csv("10_feature_selection/expdata.csv", sep = ",")
-
+    df_ori = pd.read_csv("dataset_create/expdata.csv", sep=",")
     # 不要なものを列で削除
-    df_drop = df_ori.drop({'Unnamed: 0', 'flag', 'user2','flag2', 'user_ave', 'flag_ave'}, axis = 1)
-
+    df_drop = df_ori.drop({'Unnamed: 0', 'flag', 'user2', 'flag2', 'user_ave', 'flag_ave'}, axis=1)
     return df_drop
+
 
 frank_df = load_frank_data()
 
@@ -56,15 +80,15 @@ df_column = frank_df.columns.values
 
 # データをmulti_flagを基準に分割
 # a,b,c,dのストローク方向はflag_splitに記載
-from exp_module import flag_split
 aa, ab, ac, ad, ba, bb, bc, bd, ca, cb, cc, cd, da, db, dc, dd = flag_split.frank_fs(frank_df)
 # 各multi_flagに含まれる各ユーザのデータ数の多い順について確認したい場合にはlist_index = conform.conf_sel_flag_qty()で確認可能ではある
 
+
 # 選択されたユーザのデータを各aa~ddから抽出
 # select_user_from_frank_fs
-def sel_user_ffs(sdf, user_n):
-    sdf_sel_u = sdf[sdf['user'] == user_n]
-    ff = sdf_sel_u.groupby("user")
+def sel_user_ffs(sdf2, user_n2):
+    sdf_sel_u = sdf2[sdf2['user'] == user_n2]
+    # ff = sdf_sel_u.groupby("user")
     # print(ff.size())
     return sdf_sel_u
 
@@ -92,6 +116,7 @@ selu_dd = sel_user_ffs(dd, user_n)
 
 
 # これは見直して必要なものだけ取り出す
+"""
 def result(normal_result, anomaly_result, Y_true, prediction, y_score):
     print("\n正常データのスコア\n", normal_result)
     print("\n異常データのスコア\n", anomaly_result)
@@ -99,131 +124,111 @@ def result(normal_result, anomaly_result, Y_true, prediction, y_score):
     FN = np.count_nonzero(normal_result == -1)
     FP = np.count_nonzero(anomaly_result == 1)
     TN = np.count_nonzero(anomaly_result == -1)
-    print('\nTP：',TP,'　FN:',FN, '　FP:',FP,'　TN:',TN)
+    print('\nTP：', TP, '　FN:', FN, '　FP:', FP, '　TN:', TN)
 
-    cm = confusion_matrix(Y_true,prediction,labels=[1, -1])
+    cm = confusion_matrix(Y_true, prediction, labels=[1, -1])
     print(cm)
 
     print('classification_report\n', classification_report(Y_true, prediction))
-    print('\nAccuracy:',accuracy_score(Y_true, prediction))
-    print('Precision:',precision_score(Y_true, prediction))
-    print('Recall:',recall_score(Y_true, prediction))
-    print('F1:',f1_score(Y_true, prediction))
+    print('\nAccuracy:', accuracy_score(Y_true, prediction))
+    print('Precision:', precision_score(Y_true, prediction))
+    print('Recall:', recall_score(Y_true, prediction))
+    print('F1:', f1_score(Y_true, prediction))
     FRR = FN / (FN + TP)
     print("FRR:{}".format(FRR))
     FAR = FP / (TN + FP)
     print("FAR:{}".format(FAR))
     BER = 0.5 * (FP / (TN + FP) + FN / (FN + TP))
     print("BER:{}".format(BER))
-    print('AUC',roc_auc_score(Y_true, y_score))
+    print('AUC', roc_auc_score(Y_true, y_score))
 
     fpr, tpr, thresholds = roc_curve(Y_true, y_score, drop_intermediate=False)
     auc = metrics.auc(fpr, tpr)
 
-    plt.figure(figsize=(8,6),dpi=200)
-    plt.title('ROC curve (AUC = %.3f)' %auc)
-    plt.plot(fpr, tpr, label='ROC curve (area = %.3f)' %auc , marker='o')
-    plt.plot([0,1],[0,1],color = 'black', linestyle='--')
+    plt.figure(figsize=(8, 6), dpi=200)
+    plt.title(f'ROC curve (AUC = {auc:.3f})')
+    plt.plot(fpr, tpr, label=f'ROC curve (area = {auc:.3f})', marker='o')
+    plt.plot([0, 1], [0, 1], color='black', linestyle='--')
     plt.xlabel('FPR: False positive rate')
     plt.ylabel('TPR: True positive rate')
     plt.grid()
-
     plt.legend()
-
     plt.show()
+"""
 
-from sklearn.model_selection import KFold
-
-# 評価
-from sklearn import metrics
-from sklearn.metrics import f1_score
-from sklearn.metrics import roc_curve
-from sklearn.metrics import recall_score
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import classification_report
-
-# データ分割用
-from exp_module import data_split_exp as dse
-
-# PCAするときに必要かも
-# from sklearn.feature_selection import RFE
-# from sklearn.decomposition import PCA
-# import mglearn
-# import japanize_matplotlib
-# from mpl_toolkits.mplot3d import Axes3D
 
 def far_frr(normal_result, anomaly_result):
-    TP = np.count_nonzero(normal_result == 1)
-    FN = np.count_nonzero(normal_result == -1)
-    FP = np.count_nonzero(anomaly_result == 1)
-    TN = np.count_nonzero(anomaly_result == -1)
-    FRR = FN / (FN + TP)
-    FAR = FP / (TN + FP)
-    BER = 0.5 * (FP / (TN + FP) + FN / (FN + TP))
+    tp = np.count_nonzero(normal_result == 1)
+    fn = np.count_nonzero(normal_result == -1)
+    fp = np.count_nonzero(anomaly_result == 1)
+    tn = np.count_nonzero(anomaly_result == -1)
+    re_far = fp / (tn + fp)
+    re_frr = fn / (fn + tp)
+    re_ber = 0.5 * ((fp / (tn + fp)) + (fn / (fn + tp)))
 
     # accuracy = ((TP+TN)/(TP+FN+FP+TN))
     # print(accuracy)
-    return FRR, FAR, BER
+    return re_far, re_frr, re_ber
 
-def hazu(st, X_val_no, Y_val_no, user_n, X_train, columns):
-    '''
 
+def hazu(st, re_x_val_no, y_val_no, user_n2, x_train, columns):
+    """
     :param st: multi_flagに基づいた各データの集まり
-    :param X_val_no: X_train_ssの内の検証用データ
-    :param Y_val_no: Y_train_ssの内の検証用データ
-    :param user_n: ユーザの番号
-    :param X_train: 各フラグのうちuser_nで抽出されたX_trainのスケーリング前のもの
+    :param re_x_val_no: X_train_ssの内の検証用データ
+    :param y_val_no: Y_train_ssの内の検証用データ
+    :param user_n2: ユーザの番号
+    :param x_train: 各フラグのうちuser_nで抽出されたX_trainのスケーリング前のもの
     スケーリングの範囲を合わせるために利用
     :param columns: Column
     :return: 外れ値を付与した検証用データ
-    '''
+    """
 
-    def hazure2(st, X_val_no, Y_val_no, user_n):
-        sst = st[st['user'] != user_n]
-        val_no_size = Y_val_no.count()
+    def hazure2(st2, y_val_no2, user_n3):
+        sst = st2[st2['user'] != user_n3]
+        val_no_size = y_val_no2.count()
         sst_shuffle = sst.sample(frac=1, random_state=0).reset_index(drop=True)
-        sst_select_outlier = sst_shuffle.sample(n=val_no_size, random_state=0)
-        return sst_select_outlier
+        sst_select_outlier2 = sst_shuffle.sample(n=val_no_size, random_state=0)
+        return sst_select_outlier2
 
-    sst_select_outlier = hazure2(st, X_val_no, Y_val_no, user_n)
+    sst_select_outlier = hazure2(st, y_val_no, user_n2)
     list2 = list(sst_select_outlier['user'])
     user_n_change = sst_select_outlier.copy()
     user_0 = user_n_change.replace({'user': list2}, 0)
 
-    X_val_ano, Y_val_ano = dse.X_Y(user_0)
+    x_val_ano, y_val_ano = dse.X_Y(user_0)
 
     # スケーリング
-    ss = preprocessing.StandardScaler().fit(X_train)
-    result1 = ss.transform(X_val_ano)
-    result = pd.DataFrame(result1)
-    result.columns = columns
+    ss = preprocessing.StandardScaler().fit(x_train)
+    x_val_ano1 = ss.transform(x_val_ano)
+    re_x_val_ano = pd.DataFrame(x_val_ano1)
+    re_x_val_ano.columns = columns
 
     # testデータの結合
-    X_val = pd.concat([X_val_no, result]).reset_index(drop=True)
-    Y_val1 = pd.concat([Y_val_no, Y_val_ano]).reset_index(drop=True)
+    re_x_val = pd.concat([re_x_val_no, re_x_val_ano]).reset_index(drop=True)
+    y_val1 = pd.concat([y_val_no, y_val_ano]).reset_index(drop=True)
 
-    Y_val2 = Y_val1.copy()
-    Y_val = Y_val2.replace({user_n: 1, 0: -1})
+    y_val2 = y_val1.copy()
+    re_y_val = y_val2.replace({user_n: 1, 0: -1})
 
-    return X_val, Y_val, X_val_no, result
+    return re_x_val, re_y_val, re_x_val_no, re_x_val_ano
 
-class Experiment():
 
-    def __init__(self, st, user_select, user_n, flag_n):
+class Experiment:
+
+    def __init__(self, st, user_select, user_n2, flag_n):
         memori = ['0', 'a', 'b', 'c', 'd']
         print(
-            f'\n-----------------------------------------------------------------\n{user_n} : {memori[flag_n // 10]} + {memori[flag_n % 10]}\n-----------------------------------------------------------------')
+            f'\n-----------------------------------------------------------------\n{user_n} : {memori[flag_n // 10]} + '
+            f'{memori[flag_n % 10]}\n-----------------------------------------------------------------')
         try:
             self.st = st
             self.user_select = user_select
-            self.user_n = user_n
+            self.user_n = user_n2
             self.flag_n = flag_n
             # 実験用にデータを訓練データ，検証データ，テストデータにわける
-            self.X_train_ss, self.X_test_ss, self.X_test_t_ss, self.X_test_f_ss, self.Y_train, self.Y_test, self.train_target, \
-            self.test_target, self.X_train, self.Y_test_t, self.Y_test_f, self.st_f_us_number = dse.data_split(self.st, self.user_select, self.user_n)
+            self.X_train_ss, self.X_test_ss, self.X_test_t_ss, self.X_test_f_ss, self.Y_train, self.Y_test, \
+                self.train_target, self.test_target, self.X_train, self.Y_test_t, self.Y_test_f, self.st_f_us_number = \
+                dse.data_split(self.st, self.user_select, self.user_n)
 
             self.columns = self.X_train.columns.values
         except AttributeError:
@@ -242,54 +247,53 @@ class Experiment():
             scores_test = {}
 
             # 絶対要らない気がするので再確認←要らない
-            Y_true1 = self.Y_test.copy()
-            Y_true = Y_true1.replace({self.user_n: 1, 0: -1})
+            y_true1 = self.Y_test.copy()
+            y_true = y_true1.replace({self.user_n: 1, 0: -1})
 
             # k分割交差検証 k=10
             k = 10
             kf = KFold(n_splits=k, shuffle=True, random_state=0)
             for model in models:
-                X_train_ss2 = pd.DataFrame(self.X_train_ss, columns = self.columns)
+                x_train_ss2 = pd.DataFrame(self.X_train_ss, columns=self.columns)
                 count = 0
-                for train_index, val_index in kf.split(X_train_ss2, self.Y_train):
-                    model.fit(X_train_ss2.iloc[train_index])
+                for train_index, val_index in kf.split(x_train_ss2, self.Y_train):
+                    model.fit(x_train_ss2.iloc[train_index])
                     # 検証用データに偽物のデータを付与
-                    X_val, Y_val, X_val_t, X_val_f = hazu(self.st, X_train_ss2.iloc[val_index],
-                                                             self.Y_train.iloc[val_index], self.user_n,
-                                                             self.X_train, self.columns)
+                    x_val, y_val, x_val_t, x_val_f = hazu(self.st, x_train_ss2.iloc[val_index],
+                                                          self.Y_train.iloc[val_index], self.user_n,
+                                                          self.X_train, self.columns)
                     # 予測
-                    val_pred = model.predict(X_val)
-                    normal_result = model.predict(X_val_t)
-                    anomaly_result = model.predict(X_val_f)
+                    val_pred = model.predict(x_val)
+                    normal_result = model.predict(x_val_t)
+                    anomaly_result = model.predict(x_val_f)
 
                     # 評価
-                    FAR, FRR, BER = far_frr(normal_result, anomaly_result)
+                    far, frr, ber = far_frr(normal_result, anomaly_result)
 
-                    scores[str(model).split('(')[0]][count] = {'Accuracy': accuracy_score(y_true=Y_val, y_pred=val_pred),
-                                                               'Precision': precision_score(Y_val, val_pred),
-                                                               'Recall': recall_score(Y_val, val_pred),
-                                                               'F1': f1_score(Y_val, val_pred),
-                                                               'AUC': roc_auc_score(Y_val, model.decision_function(X_val)),
-                                                               'FAR': FAR, 'FRR': FRR, 'BER': BER}
+                    scores[str(model).split('(')[0]][count] = {'Accuracy': accuracy_score(y_true=y_val,
+                                                                                          y_pred=val_pred),
+                                                               'Precision': precision_score(y_val, val_pred),
+                                                               'Recall': recall_score(y_val, val_pred),
+                                                               'F1': f1_score(y_val, val_pred),
+                                                               'AUC': roc_auc_score(y_val,
+                                                                                    model.decision_function(x_val)),
+                                                               'FAR': far, 'FRR': frr, 'BER': ber}
                     count += 1
-
                 # testデータにて汎化性能評価
-                model.fit(X_train_ss2)
-
+                model.fit(x_train_ss2)
                 test_pred = model.predict(self.X_test_ss)
                 test_normal_result = model.predict(self.X_test_t_ss)
                 test_anomaly_result = model.predict(self.X_test_f_ss)
 
-                t_FAR, t_FRR, t_BER = far_frr(test_normal_result, test_anomaly_result)
+                t_far, t_frr, t_ber = far_frr(test_normal_result, test_anomaly_result)
 
-                scores_test[str(model).split('(')[0]] = {'Accuracy': accuracy_score(y_true=Y_true, y_pred=test_pred),
-                                                         'Precision': precision_score(Y_true, test_pred),
-                                                         'Recall': recall_score(Y_true, test_pred),
-                                                         'F1': f1_score(Y_true, test_pred),
-                                                         'AUC': roc_auc_score(Y_true, model.decision_function(self.X_test_ss)),
-                                                         'FAR': t_FAR, 'FRR': t_FRR, 'BER': t_BER}
-
-
+                scores_test[str(model).split('(')[0]] = {'Accuracy': accuracy_score(y_true=y_true, y_pred=test_pred),
+                                                         'Precision': precision_score(y_true, test_pred),
+                                                         'Recall': recall_score(y_true, test_pred),
+                                                         'F1': f1_score(y_true, test_pred),
+                                                         'AUC': roc_auc_score(y_true,
+                                                                              model.decision_function(self.X_test_ss)),
+                                                         'FAR': t_far, 'FRR': t_frr, 'BER': t_ber}
             # 結果のまとめ
             # Panelが廃止されたので，ゴリ押し感が否めない
             # いまさらだけどDecimal型に変換して計算したほうが良かった？
@@ -302,39 +306,40 @@ class Experiment():
                     for m in range(k):
                         b += scores[m_i][m][df_i]
                     a[i][j] = b/k
-            a_df = pd.DataFrame(a, index = model_index, columns = result_index)
+            a_df = pd.DataFrame(a, index=model_index, columns=result_index)
             print('交差検証k=10の結果')
             print(a_df)
 
-            # result.csvへ書き出し
-            def output_data(self, a, model_index, result_index, text):
+            # result_old.csvへ書き出し
+            def output_data(a2, model_index2, result_index2, text):
                 # フォルダがなければ自動的に作成
                 os.makedirs('result', exist_ok=True)
                 # Columnの作成
                 user = pd.Series([self.user_n]*4, name='user')
                 flag = pd.Series([self.flag_n]*4, name='flag')
                 performance = pd.Series([text]*4, name='performance')
-                model = pd.Series(model_index, name='model')
+                model2 = pd.Series(model_index2, name='model')
                 # valとtestで条件指定してresult作成
                 if text == 'val':
-                    result = pd.DataFrame(a, columns=result_index)
+                    result = pd.DataFrame(a2, columns=result_index2)
                 else:
                     print('\ntestデータでの結果')
                     result = pd.DataFrame(scores_test).T
                     print(result)
-                    result = result.reset_index()
+                    result = result.reset_index2()
                     result = result.drop('index', 1)
                 # 全て結合
-                all_result = pd.concat([user, flag, performance, model, result], axis=1)
+                all_result = pd.concat([user, flag, performance, model2, result], axis=1)
                 # 書き出し
                 all_result.to_csv(f'result/result_{text}.csv', mode='a', header=False, index=False)
 
             # 交差検証の結果の書き出し
-            output_data(self, a, model_index, result_index, 'val')
+            output_data(a, model_index, result_index, 'val')
             # テストデータの結果の書き出し
-            output_data(self, scores_test, model_index, result_index, 'test')
+            output_data(scores_test, model_index, result_index, 'test')
         except AttributeError:
             pass
+
 
 experiment_aa = Experiment(aa, selu_aa, user_n, 11)
 experiment_aa.closs_val()
