@@ -30,7 +30,7 @@ def load_frank_data(user_n, document, doc_list):
     df_doc = df_doc.reset_index(drop=True)
 
     # Document_IDと電話番号の削除→docは消さない
-    df_drop_doc_phone = df_doc.drop({'doc', 'phone'}, axis=1)
+    df_drop_doc_phone = df_doc.drop('phone', axis=1)
 
     return df_drop_doc_phone, df_drop_doc_phone.drop(df_drop_doc_phone.index[len(df_drop_doc_phone)-1]),\
            df_drop_doc_phone.drop(0)
@@ -57,7 +57,7 @@ for user_n in range(1, 42, 1):
         dddp, dddp_del_lastrow, dddp_del_firstrow = load_frank_data(user_n, document, doc_list)
 
         # dddp_del_firstrowのColumnsを書き換え
-        dddp_del_firstrow.columns = ['user2', 'stroke_inter2', 'stroke_duration2', 'start_x2', 'start_y2', 'stop_x2',
+        dddp_del_firstrow.columns = ['user2', 'doc2', 'stroke_inter2', 'stroke_duration2', 'start_x2', 'start_y2', 'stop_x2',
                                      'stop_y2', 'direct_ete_distance2', 'mean_result_leng2', 'flag2',
                                      'direct_ete_line2', '20_pairwise_v2', '50_pairwise_v2', '80_pairwise_v2',
                                      '20_pairwise_acc2', '50_pairwise_acc2', '80_pairwise_acc2', '3ots_m_v2',
@@ -67,7 +67,7 @@ for user_n in range(1, 42, 1):
                                      'm_stroke_area_cover2', 'finger_orien2', 'cd_finger_orien2', 'phone_orien2']
 
         # dddp_del_lastrowとdddp_del_firstlowのストロークの平均を格納する辞書の用意
-        dddp_fl_mean = {'user': {}, 'stroke_inter': {}, 'stroke_duration': {}, 'start_x': {}, 'start_y': {},
+        dddp_fl_mean = {'user': {}, 'doc': {}, 'stroke_inter': {}, 'stroke_duration': {}, 'start_x': {}, 'start_y': {},
                         'stop_x': {}, 'stop_y': {}, 'direct_ete_distance': {}, 'mean_result_leng': {}, 'flag': {},
                         'direct_ete_line': {}, '20_pairwise_v': {}, '50_pairwise_v': {}, '80_pairwise_v': {},
                         '20_pairwise_acc': {}, '50_pairwise_acc': {}, '80_pairwise_acc': {}, '3ots_m_v': {},
@@ -87,7 +87,7 @@ for user_n in range(1, 42, 1):
         # データフレームに変換
         dddp_ave = pd.DataFrame(dddp_fl_mean)
         # dddp_aveのColumnsを書き換え
-        dddp_ave.columns = ['user_ave', 'stroke_inter_ave', 'stroke_duration_ave', 'start_x_ave', 'start_y_ave',
+        dddp_ave.columns = ['user_ave', 'doc_ave', 'stroke_inter_ave', 'stroke_duration_ave', 'start_x_ave', 'start_y_ave',
                             'stop_x_ave', 'stop_y_ave', 'direct_ete_distance_ave', 'mean_result_leng_ave', 'flag_ave',
                             'direct_ete_line_ave', '20_pairwise_v_ave', '50_pairwise_v_ave', '80_pairwise_v_ave',
                             '20_pairwise_acc_ave', '50_pairwise_acc_ave', '80_pairwise_acc_ave', '3ots_m_v_ave',
@@ -156,6 +156,6 @@ for user_n in range(1, 42, 1):
         df = pd.concat([dddp_del_lastrow.reset_index(drop=True), dddp_del_firstrow.reset_index(drop=True), dddp_ave,
                         dddp_new_features.T], axis=1, join='outer')
         # FC_docファイルがなければ作成
-        os.makedirs('FC_doc', exist_ok=True)
+        os.makedirs('FC_doc2', exist_ok=True)
         # 各ユーザの各ドキュメントごとに書き出しを行う
-        df.to_csv('FC_doc/fc{0}_{1}.csv'.format(user_n, doc_list[document]))
+        df.to_csv('FC_doc2/fc{0}_{1}_doc.csv'.format(user_n, doc_list[document]))

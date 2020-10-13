@@ -6,7 +6,7 @@ import pandas as pd
 import glob
 
 # パスを取得
-DATA_PATH = "./FC_doc/"
+DATA_PATH = "./FC_doc2/"
 All_Files = glob.glob('{}*.csv'.format(DATA_PATH))
 
 # フォルダ中の全csvをマージ
@@ -17,4 +17,4 @@ df = pd.concat(f_list, sort=False)
 del df['Unnamed: 0']
 
 # csv出力
-df.to_csv('combine_FC_docfiles.csv')
+df.to_csv('combine_FC_docfiles2.csv')

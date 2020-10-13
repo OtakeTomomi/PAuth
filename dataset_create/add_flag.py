@@ -10,7 +10,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # データの読み込み
-df_read = pd.read_csv("combine_FC_docfiles.csv", sep=",")
+df_read = pd.read_csv("combine_FC_docfiles2.csv", sep=",")
 df_ori = df_read.drop({'Unnamed: 0'}, axis=1)
 df = df_ori.copy()
 print('欠損値削除前→行数：{0} 列数：{1}'.format(df.shape[0], df.shape[1]))
@@ -41,4 +41,4 @@ print(df.info())
 print('欠損値削除後→行数：{0} 列数：{1}'.format(df_last.shape[0], df_last.shape[1]))
 
 # 書き出す時にindex = Falseで消したほうがいい
-df_last.to_csv('expdata.csv')
+df_last.to_csv('expdata_doc.csv')
