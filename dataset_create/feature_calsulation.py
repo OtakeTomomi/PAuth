@@ -29,7 +29,7 @@ def load_frank_data(user_n, document, doc_list):
     df_doc = df_read_fM_doc.copy()
     df_doc = df_doc.reset_index(drop=True)
 
-    # Document_IDと電話番号の削除
+    # Document_IDと電話番号の削除→docは消さない
     df_drop_doc_phone = df_doc.drop({'doc', 'phone'}, axis=1)
 
     return df_drop_doc_phone, df_drop_doc_phone.drop(df_drop_doc_phone.index[len(df_drop_doc_phone)-1]),\
