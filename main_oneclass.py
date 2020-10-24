@@ -20,6 +20,7 @@ from sklearn.neighbors import LocalOutlierFactor
 from expmodule.dataset import load_frank
 from expmodule.flag_split import flag4
 from expmodule.datasplit_train_test_val import datasplit_session
+from expmodule.datasplit_train_test_val import x_y_split
 
 # 交差検証
 from sklearn.model_selection import KFold
@@ -42,7 +43,7 @@ def main(df, user_n, session):
     # 第1段階: データをflagに従って上下左右の方向ごとに分割する
 
     # データのColumn取得
-    df_column = df.columns.values
+    # df_column = df.columns.values
 
     # 上下左右のflagをもとにデータを分割
     a, b, c, d = flag4(df, 'flag')
@@ -78,53 +79,59 @@ def main(df, user_n, session):
         # print(accuracy)
         return re_far, re_frr, re_ber
 
-    def fake_val(df_flag, re_x_val_no, y_val_no, u_n, x_train, columns):
+    def fake_val(df_flag, x_val_t, y_val_t, u_n, x_train, columns, fake_data_except_test_f):
         """
         :param df_flag: multi_flagに基づいた各データの集まり
-        :param re_x_val_no: X_train_ssの内の検証用データ
-        :param y_val_no: Y_train_ssの内の検証用データ
+        :param x_val_t: X_train_ssの内の検証用データ
+        :param y_val_t: Y_train_ssの内の検証用データ
         :param u_n: ユーザの番号
         :param x_train: 各フラグのうちuser_nで抽出されたX_trainのスケーリング前のもの
         スケーリングの範囲を合わせるために利用
         :param columns: Column
+        :param fake_data_except_test_f: fake_data_except_test_f
         :return: 外れ値を付与した検証用データ
         """
 
-        def fake_data(st2, y_val_no2, user_n3):
-            sst = st2[st2['user'] != user_n3]
-            val_no_size = y_val_no2.count()
-            sst_shuffle = sst.sample(frac=1, random_state=0).reset_index(drop=True)
-            sst_select_outlier2 = sst_shuffle.sample(n=val_no_size, random_state=0)
-            return sst_select_outlier2
+        # def fake_data(st2, yvalt, usern):
+        #     sst = st2[st2['user'] != usern]
+        #     val_no_size = yvalt.count()
+        #     sst_shuffle = sst.sample(frac=1, random_state=0).reset_index(drop=True)
+        #     sst_select_outlier2 = sst_shuffle.sample(n=val_no_size, random_state=0)
+        #     return sst_select_outlier2
+        #
+        # sst_select_outlier = fake_data(df_flag, y_val_t, u_n)
+        # 検証用データの個数調査
+        val_t_size = y_val_t.count()
+        # テスト用に使用する他人のデータ以外から検証用データと同じ数選択する
+        val_outlier = fake_data_except_test_f[:val_t_size]
 
-        sst_select_outlier = fake_data(df_flag, y_val_no, u_n)
-        list2 = list(sst_select_outlier['user'])
-        user_n_change = sst_select_outlier.copy()
-        user_0 = user_n_change.replace({'user': list2}, 0)
+        val_outlier_user_n = list(val_outlier['user'])
+        val_outlier2 = val_outlier.copy()
+        val_outlier_user_change0 = val_outlier2.replace({'user': val_outlier_user_n}, 0)
 
-        def x_y_split_val(df_flag_user_extract):
-            x_split = df_flag_user_extract.drop("user", 1)
-            y_split = df_flag_user_extract.user
-            return x_split, y_split
+        # def x_y_split_val(df_flag_user_extract):
+        #     x_split = df_flag_user_extract.drop("user", 1)
+        #     y_split = df_flag_user_extract.user
+        #     return x_split, y_split
 
-        x_val_ano, y_val_ano = x_y_split_val(user_0)
+        x_val_f, y_val_f = x_y_split(val_outlier_user_change0)
 
         # スケーリング
         ss = preprocessing.StandardScaler()
         ss.fit(x_train)
-        x_val_ano1 = ss.transform(x_val_ano)
-        re_x_val_ano = pd.DataFrame(x_val_ano1)
-        re_x_val_ano.columns = columns
+        x_val_f_ss = ss.transform(x_val_f)
+        x_val_f_ss_df = pd.DataFrame(x_val_f_ss)
+        x_val_f_ss_df.columns = columns
 
         # testデータの結合
-        re_x_val = pd.concat([re_x_val_no, re_x_val_ano]).reset_index(drop=True)
-        y_val1 = pd.concat([y_val_no, y_val_ano]).reset_index(drop=True)
+        x_val = pd.concat([x_val_t, x_val_f_ss_df]).reset_index(drop=True)
+        y_val = pd.concat([y_val_t, y_val_f]).reset_index(drop=True)
 
-        y_val2 = y_val1.copy()
+        y_val2 = y_val.copy()
         # 結果が本人であれば１，偽物であれば-1で返されるため，予測された結果があっているかを確認するための教師データを作成する
-        re_y_val = y_val2.replace({user_n: 1, 0: -1})
+        y_val_true = y_val2.replace({user_n: 1, 0: -1})
 
-        return re_x_val, re_y_val, re_x_val_no, re_x_val_ano
+        return x_val, y_val_true, x_val_t, x_val_f_ss_df
 
     class OneClassOne(object):
 
@@ -140,8 +147,8 @@ def main(df, user_n, session):
                 self.flag_n = flag_n
                 self.session_select = session_select
 
-                self.x_train, self.y_train, self.x_test, self.y_test, \
-                    self.x_test_t, self.y_test_t, self.x_test_f, self.y_test_f, self.test_f \
+                self.x_train, self.y_train, self.x_test, self.y_test, self.x_test_t,\
+                    self.y_test_t, self.x_test_f, self.y_test_f, self.test_f, self.fake_data_except_test_f \
                     = datasplit_session(self.df_flag, self.df_flag_user_extract, self.u_n, self.session_select)
 
                 # 標準化
@@ -186,9 +193,10 @@ def main(df, user_n, session):
                         model.fit(x_train_ss_df.iloc[train_index])
                         # 検証用データに偽物のデータを付与
                         # self.df_flagではなくdatasplit_train_test_valで作成したどこにも属していないデータ？
-                        x_val, y_val, x_val_t, x_val_f = fake_val(self.df_flag, x_train_ss_df.iloc[val_index],
-                                                                  self.y_train.iloc[val_index], self.u_n,
-                                                                  self.x_train, self.columns)
+                        x_val, y_val_true, x_val_t, x_val_f = fake_val(self.df_flag, x_train_ss_df.iloc[val_index],
+                                                                       self.y_train.iloc[val_index], self.u_n,
+                                                                       self.x_train, self.columns,
+                                                                       self.fake_data_except_test_f)
                         # 予測
                         val_pred = model.predict(x_val)
                         normal_result = model.predict(x_val_t)
@@ -197,12 +205,12 @@ def main(df, user_n, session):
                         # 評価
                         far, frr, ber = far_frr_ber(normal_result, anomaly_result)
 
-                        scores[str(model).split('(')[0]][count] = {'Accuracy': accuracy_score(y_true=y_val,
+                        scores[str(model).split('(')[0]][count] = {'Accuracy': accuracy_score(y_true=y_val_true,
                                                                                               y_pred=val_pred),
-                                                                   'Precision': precision_score(y_val, val_pred),
-                                                                   'Recall': recall_score(y_val, val_pred),
-                                                                   'F1': f1_score(y_val, val_pred),
-                                                                   'AUC': roc_auc_score(y_val,
+                                                                   'Precision': precision_score(y_val_true, val_pred),
+                                                                   'Recall': recall_score(y_val_true, val_pred),
+                                                                   'F1': f1_score(y_val_true, val_pred),
+                                                                   'AUC': roc_auc_score(y_val_true,
                                                                                         model.decision_function(x_val)),
                                                                    'FAR': far, 'FRR': frr, 'BER': ber}
                         count += 1
@@ -270,7 +278,6 @@ def main(df, user_n, session):
             except AttributeError as ex:
                 print(f"No train data:{ex}")
                 pass
-
 
         def authentication_phase(self):
             try:
