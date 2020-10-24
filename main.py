@@ -54,7 +54,7 @@ from exp_module import flag_split
 import warnings
 warnings.filterwarnings('ignore')
 
-# コマンドライン変数から値を受け取る
+# コマンドライン変数から値を受け取る→変更
 args = sys.argv
 user_n = int(args[1])
 
@@ -83,41 +83,47 @@ df_column = frank_df.columns.values
 aa, ab, ac, ad, ba, bb, bc, bd, ca, cb, cc, cd, da, db, dc, dd = flag_split.frank_fs(frank_df)
 # 各multi_flagに含まれる各ユーザのデータ数の多い順について確認したい場合にはlist_index = conform.conf_sel_flag_qty()で確認可能ではある
 
+# ここまでは41人分
+
 
 # 選択されたユーザのデータを各aa~ddから抽出
 # select_user_from_frank_fs
-def sel_user_ffs(sdf2, user_n2):
+def sel_user_ffs(sdf2, user_n2, text):
     sdf_sel_u = sdf2[sdf2['user'] == user_n2]
     # ff = sdf_sel_u.groupby("user")
-    # print(ff.size())
+    # print(f'データ数_{text}：{ff.size()}')
+    data_item = pd.DataFrame([user_n2, text, len(sdf_sel_u)]).T
+    # print(data_item)
+    data_item.to_csv(f'info/data_item.csv', mode='a', header=None, index=None)
+
     return sdf_sel_u
 
 
 # 各multi_flagごとに選択したユーザを抽出する
-selu_aa = sel_user_ffs(aa, user_n)
-selu_ab = sel_user_ffs(ab, user_n)
-selu_ac = sel_user_ffs(ac, user_n)
-selu_ad = sel_user_ffs(ad, user_n)
+selu_aa = sel_user_ffs(aa, user_n, 'aa')
+selu_ab = sel_user_ffs(ab, user_n, 'ab')
+selu_ac = sel_user_ffs(ac, user_n, 'ac')
+selu_ad = sel_user_ffs(ad, user_n, 'ad')
 
-selu_ba = sel_user_ffs(ba, user_n)
-selu_bb = sel_user_ffs(bb, user_n)
-selu_bc = sel_user_ffs(bc, user_n)
-selu_bd = sel_user_ffs(bd, user_n)
+selu_ba = sel_user_ffs(ba, user_n, 'ba')
+selu_bb = sel_user_ffs(bb, user_n, 'bb')
+selu_bc = sel_user_ffs(bc, user_n, 'bc')
+selu_bd = sel_user_ffs(bd, user_n, 'bd')
 
-selu_ca = sel_user_ffs(ca, user_n)
-selu_cb = sel_user_ffs(cb, user_n)
-selu_cc = sel_user_ffs(cc, user_n)
-selu_cd = sel_user_ffs(cd, user_n)
+selu_ca = sel_user_ffs(ca, user_n, 'ca')
+selu_cb = sel_user_ffs(cb, user_n, 'cb')
+selu_cc = sel_user_ffs(cc, user_n, 'cc')
+selu_cd = sel_user_ffs(cd, user_n, 'cd')
 
-selu_da = sel_user_ffs(da, user_n)
-selu_db = sel_user_ffs(db, user_n)
-selu_dc = sel_user_ffs(dc, user_n)
-selu_dd = sel_user_ffs(dd, user_n)
+selu_da = sel_user_ffs(da, user_n, 'da')
+selu_db = sel_user_ffs(db, user_n, 'db')
+selu_dc = sel_user_ffs(dc, user_n, 'dc')
+selu_dd = sel_user_ffs(dd, user_n, 'dd')
 
 
 # これは見直して必要なものだけ取り出す
 """
-def result(normal_result, anomaly_result, Y_true, prediction, y_score):
+def result_0722(normal_result, anomaly_result, Y_true, prediction, y_score):
     print("\n正常データのスコア\n", normal_result)
     print("\n異常データのスコア\n", anomaly_result)
     TP = np.count_nonzero(normal_result == 1)
@@ -213,7 +219,7 @@ def hazu(st, re_x_val_no, y_val_no, user_n2, x_train, columns):
     return re_x_val, re_y_val, re_x_val_no, re_x_val_ano
 
 
-class Experiment:
+class Experiment(object):
 
     def __init__(self, st, user_select, user_n2, flag_n):
         memori = ['0', 'a', 'b', 'c', 'd']
@@ -246,7 +252,6 @@ class Experiment:
             scores = {'LocalOutlierFactor': {}, 'IsolationForest': {}, 'OneClassSVM': {}, 'EllipticEnvelope': {}}
             scores_test = {}
 
-            # 絶対要らない気がするので再確認←要らない
             y_true1 = self.Y_test.copy()
             y_true = y_true1.replace({self.user_n: 1, 0: -1})
 
@@ -324,20 +329,21 @@ class Experiment:
                     result = pd.DataFrame(a2, columns=result_index2)
                 else:
                     print('\ntestデータでの結果')
-                    result = pd.DataFrame(scores_test).T
+                    result = pd.DataFrame(a2).T
                     print(result)
-                    result = result.reset_index2()
+                    result = result.reset_index()
                     result = result.drop('index', 1)
                 # 全て結合
                 all_result = pd.concat([user, flag, performance, model2, result], axis=1)
                 # 書き出し
-                all_result.to_csv(f'result/result_{text}.csv', mode='a', header=False, index=False)
+                all_result.to_csv(f'result_2020_7/result_0722/result_{text}.csv', mode='a', header=False, index=False)
 
             # 交差検証の結果の書き出し
             output_data(a, model_index, result_index, 'val')
             # テストデータの結果の書き出し
             output_data(scores_test, model_index, result_index, 'test')
-        except AttributeError:
+        except AttributeError as ex:
+            print(f"No data:{ex}")
             pass
 
 
