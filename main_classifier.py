@@ -60,6 +60,8 @@ from expmodule.classifier import user_select
 
 def main(df, select_n):
 
+    # 第1段階: データの読み込み&ストローク方向で分割
+
     # データのColumn取得
     df_column = df.columns.values
 
@@ -67,68 +69,39 @@ def main(df, select_n):
     a, b, c, d = flag4(df, 'flag')
 
     # 実験に使用するユーザの選択とソート
-    def h_select(df_flag, s_n):
-        """
-        :param df_flag: フラグで切り分けられたデータ
-        :param s_n: 選択されたユーザ数
-        :return: 選択されたユーザ数のデータ
-        """
-        # フラグ内のuserごとにデータをまとめる
-        g2 = df_flag.groupby("user")
-        # 降順にフラグの数でソート
-        df2_h = pd.DataFrame(g2.size().sort_values(ascending=False))
-        # データ数の多いuserからリストに格納
-        list_index = df2_h.index.values
-        df_h_select = df_flag[df_flag['user'].isin(list_index[0:s_n])]
-        ff = df_h_select.groupby("user")
-        print(ff.size().sort_values(ascending=False))
-        print("選択されているもの→　メンバー：{}人".format(s_n))
-        print("=========================")
-        return df_h_select
+    a_user = user_select(a, select_n)
+    b_user = user_select(b, select_n)
+    c_user = user_select(c, select_n)
+    d_user = user_select(d, select_n)
 
-    # print("a")
-    df_h1_select = user_select(a, select_n)
-    # print("b")
-    df_h2_select = user_select(b, select_n)
-    # print("c")
-    df_h3_select = user_select(c, select_n)
-    # print("d")
-    df_h4_select = user_select(d, select_n)
+    # 第2段階: 保留
 
-    # ここでデータの数を調整する処理を書く
-    def data_max(df_h1_select, df_h2_select, df_h3_select, df_h4_select):
-        # 各フラグの個数を算出する
-        f1 = len(df_h1_select)
-        f2 = len(df_h2_select)
-        f3 = len(df_h3_select)
-        f4 = len(df_h4_select)
-        f = 0
+    class ClassifierOne(object):
 
-        if f1 <= f2 and f1 <= f3 and f1 <= f4:
-            f = f1
-        elif f2 <= f1 and f2 <= f3 and f2 <= f4:
-            f = f2
-        elif f3 <= f1 and f3 <= f2 and f3 <= f4:
-            f = f3
-        else:
-            f = f4
-        print('各ストロークのなかで最も少ないデータ数：', f)
-        return f
+        def __init__(self, df_flag, s_n, select_session='all'):
+            self.df_flag = df_flag
+            self.s_n = s_n
+            self.select_session = select_session
 
-    data_max = data_max(df_h1_select, df_h2_select, df_h3_select, df_h4_select)
+            # これはテストデータとかで分けるときにする
+            from expmodule.session_select import session
+            self.df_session_select = session(self.df_flag, self.select_session)
 
-    def data_sample(df_h_select, data_max):
-        df = df_h_select
-        df2 = df.sample(n=data_max, random_state=0).reset_index(drop=True)
-        ff = df2.groupby("user")
-        print(ff.size().sort_values(ascending=False))
-        return df2
+            def x_y_split(self):
+                x = self.df_flag.drop("user", 1)
+                y = self.df_flag.user
+
+                return x, y
+
+            self.X, self.Y = x_y_split(self.df_flag)
 
 
-    df1_select = data_sample(df_h1_select, data_max)
-    df2_select = data_sample(df_h2_select, data_max)
-    df3_select = data_sample(df_h3_select, data_max)
-    df4_select = data_sample(df_h4_select, data_max)
+
+
+
+
+
+
 
     # 説明変数Xと目的変数Yにわける
     def X_Y(train_data):
