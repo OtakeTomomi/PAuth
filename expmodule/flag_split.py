@@ -34,7 +34,7 @@ def flag4(df, flagtext):
 
 def flag16(df, flagtext):
     df2 = df.copy()
-    for flag, sdf in df.groupby(flagtext):
+    for flag, sdf in df2.groupby(flagtext):
         sdf = sdf.reset_index(drop=True)
         if flag == 11:
             re_aa = sdf.drop(flagtext, axis=1)
