@@ -33,17 +33,14 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 
 
-# Comment: 一度警告を確認してからもとに戻す
-# warning inogre code
-# import warnings
-# warnings.filterwarnings('ignore')
+# warning ignore code
+import warnings
+warnings.filterwarnings('ignore')
+
 
 def main(df, user_n, session):
 
     # 第1段階: データをflagに従って上下左右の方向ごとに分割する
-
-    # データのColumn取得
-    # df_column = df.columns.values
 
     # 上下左右のflagをもとにデータを分割
     a, b, c, d = flag4(df, 'flag')
@@ -51,14 +48,13 @@ def main(df, user_n, session):
     # flagごとに選択したユーザを抽出する
     def select_user_flag(df_flag, u_n, text):
         # フォルダがなければ自動的に作成
-        os.makedirs('result', exist_ok=True)
+        os.makedirs('result/info', exist_ok=True)
         df_flag_user_extract = df_flag[df_flag['user'] == u_n]
-        # Comment: 1-41人全員分行ったらコメントアウト
+        # Comment: 1-41人全員分行ったらコメントアウト→2020/11/05済
         data_item = pd.DataFrame([u_n, text, len(df_flag_user_extract)]).T
-        data_item.to_csv(f'result/info/main_oneclass_df_flag_user_extract_item.csv', mode='a', header=None, index=None)
+        # data_item.to_csv(f'result/info/main_oneclass_df_flag_user_extract_item.csv', mode='a', header=None, index=None)
         return df_flag_user_extract
 
-    # select_user_flag()のインスタンス作成
     a_user_extract = select_user_flag(a, user_n, 'a')
     b_user_extract = select_user_flag(b, user_n, 'b')
     c_user_extract = select_user_flag(c, user_n, 'c')
@@ -92,27 +88,18 @@ def main(df, user_n, session):
         :return: 外れ値を付与した検証用データ
         """
 
-        # def fake_data(st2, yvalt, usern):
-        #     sst = st2[st2['user'] != usern]
-        #     val_no_size = yvalt.count()
-        #     sst_shuffle = sst.sample(frac=1, random_state=0).reset_index(drop=True)
-        #     sst_select_outlier2 = sst_shuffle.sample(n=val_no_size, random_state=0)
-        #     return sst_select_outlier2
-        #
-        # sst_select_outlier = fake_data(df_flag, y_val_t, u_n)
         # 検証用データの個数調査
         val_t_size = y_val_t.count()
         # テスト用に使用する他人のデータ以外から検証用データと同じ数選択する
         val_outlier = fake_data_except_test_f[:val_t_size]
 
+        # print(val_outlier)
+
         val_outlier_user_n = list(val_outlier['user'])
+        # print(val_outlier_user_n)
         val_outlier2 = val_outlier.copy()
         val_outlier_user_change0 = val_outlier2.replace({'user': val_outlier_user_n}, 0)
-
-        # def x_y_split_val(df_flag_user_extract):
-        #     x_split = df_flag_user_extract.drop("user", 1)
-        #     y_split = df_flag_user_extract.user
-        #     return x_split, y_split
+        # print(val_outlier_user_change0)
 
         x_val_f, y_val_f = x_y_split(val_outlier_user_change0)
 
@@ -127,9 +114,11 @@ def main(df, user_n, session):
         x_val = pd.concat([x_val_t, x_val_f_ss_df]).reset_index(drop=True)
         y_val = pd.concat([y_val_t, y_val_f]).reset_index(drop=True)
 
+        # print(y_val)
+
         y_val2 = y_val.copy()
         # 結果が本人であれば１，偽物であれば-1で返されるため，予測された結果があっているかを確認するための教師データを作成する
-        y_val_true = y_val2.replace({user_n: 1, 0: -1})
+        y_val_true = y_val2.replace({u_n: 1, 0: -1})
 
         return x_val, y_val_true, x_val_t, x_val_f_ss_df
 
@@ -138,7 +127,7 @@ def main(df, user_n, session):
         def __init__(self, df_flag, df_flag_user_extract, u_n, flag_n, session_select):
             flag_memori = ['0', 'a', 'b', 'c', 'd']
             print(
-                f'\n-----------------------------------------------------------------\n{user_n} : {flag_memori[flag_n]} + '
+                f'\n-----------------------------------------------------------------\n{user_n} : {flag_memori[flag_n]}'
                 f'\n-----------------------------------------------------------------')
             try:
                 self.df_flag = df_flag
@@ -149,14 +138,19 @@ def main(df, user_n, session):
 
                 self.x_train, self.y_train, self.x_test, self.y_test, self.x_test_t,\
                     self.y_test_t, self.x_test_f, self.y_test_f, self.test_f, self.fake_data_except_test_f \
-                    = datasplit_session(self.df_flag, self.df_flag_user_extract, self.u_n, self.session_select)
+                    = datasplit_session(self.df_flag, self.df_flag_user_extract, self.u_n, self.session_select, train_size=40)
 
                 # 標準化
+                # print(self.x_train.columns)
                 ss = preprocessing.StandardScaler()
                 ss.fit(self.x_train)
                 self.x_train_ss = ss.transform(self.x_train)
                 self.x_test_ss = ss.transform(self.x_test)
                 self.x_test_t_ss = ss.transform(self.x_test_t)
+                # print(self.x_test_t.columns)
+                # print(self.x_test_t.shape)
+                # print(self.x_test_f.columns)
+                # print(self.x_test_f.shape)
                 self.x_test_f_ss = ss.transform(self.x_test_f)
 
                 self.columns = self.x_train.columns.values
@@ -165,10 +159,14 @@ def main(df, user_n, session):
                 print(f"No data:{ex}")
                 pass
 
-        def _registration_phase(self):
+            except ValueError as ex2:
+                print(f'No data: {self.session_select} == {ex2}')
+                pass
+
+        def registration_phase(self):
             try:
                 if list(self.test_f['user']) != 0:
-                    print('\n外れ値として扱うuserのnumber\n', self.test_f, '\n')
+                    print('\n外れ値として扱うuserのnumber\n', '\n')
 
                 # モデル
                 models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=0.1),
@@ -188,6 +186,7 @@ def main(df, user_n, session):
                 for model in models:
                     # columnsが消滅しているのでデータフレーム化してヘッダー追加
                     x_train_ss_df = pd.DataFrame(self.x_train_ss, columns=self.columns)
+                    # print(len(self.y_train))
                     count = 0
                     for train_index, val_index in kf.split(x_train_ss_df, self.y_train):
                         model.fit(x_train_ss_df.iloc[train_index])
@@ -202,6 +201,7 @@ def main(df, user_n, session):
                         normal_result = model.predict(x_val_t)
                         anomaly_result = model.predict(x_val_f)
 
+                        # print(y_val_true)
                         # 評価
                         far, frr, ber = far_frr_ber(normal_result, anomaly_result)
 
@@ -231,9 +231,8 @@ def main(df, user_n, session):
                             'AUC': roc_auc_score(y_true,
                                                  model.decision_function(self.x_test_ss)),
                             'FAR': t_far, 'FRR': t_frr, 'BER': t_ber}
+
                 # 結果のまとめ
-                # Panelが廃止されたので，ゴリ押し感が否めない
-                # いまさらだけどDecimal型に変換して計算したほうが良かった？
                 model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
                 result_index = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER']
                 a = np.zeros((4, 8))
@@ -246,6 +245,10 @@ def main(df, user_n, session):
                 a_df = pd.DataFrame(a, index=model_index, columns=result_index)
                 print('交差検証k=10の結果')
                 print(a_df)
+
+                s_test = pd.DataFrame(scores_test).T
+                print(f'認証用データ')
+                print(s_test[result_index])
 
                 # result_old.csvへ書き出し
                 def output_data(a2, model_index2, result_index2, text):
@@ -280,27 +283,31 @@ def main(df, user_n, session):
                 pass
 
         def authentication_phase(self):
+            # TODO: あとで考える
             try:
-                a = 0
+                test = 0
+                print(f'{test} No data')
             except AttributeError as ex:
                 print(f"No test data:{ex}")
                 pass
 
     oneclassone_a = OneClassOne(a, a_user_extract, user_n, 1, session)
-    oneclassone_a.authentication_phase()
+    oneclassone_a.registration_phase()
+    # oneclassone_a.authentication_phase()
     oneclassone_b = OneClassOne(b, b_user_extract, user_n, 2, session)
-    oneclassone_b.authentication_phase()
+    oneclassone_b.registration_phase()
     oneclassone_c = OneClassOne(c, c_user_extract, user_n, 3, session)
-    oneclassone_c.authentication_phase()
+    oneclassone_c.registration_phase()
     oneclassone_d = OneClassOne(d, d_user_extract, user_n, 4, session)
-    oneclassone_d.authentication_phase()
+    oneclassone_d.registration_phase()
 
 
 if __name__ == '__main__':
     print("実験用プログラム 1ストロークの1クラス分類")
 
+    # combination= False
     frank_df = load_frank(False)
     session_list = ['first', 'latter', 'all']
     # 41人いるよ
     for user in range(1, 2):
-        main(frank_df, user, session='all')
+        main(frank_df, user, session='first')
