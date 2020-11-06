@@ -50,9 +50,10 @@ def main(df, user_n, session):
         # フォルダがなければ自動的に作成
         os.makedirs('result/info', exist_ok=True)
         df_flag_user_extract = df_flag[df_flag['user'] == u_n]
-        # Comment: 1-41人全員分行ったらコメントアウト→2020/11/05済
+        # 1-41人全員分行ったらコメントアウト→2020/11/05済
         data_item = pd.DataFrame([u_n, text, len(df_flag_user_extract)]).T
-        # data_item.to_csv(f'result/info/main_oneclass_df_flag_user_extract_item.csv', mode='a', header=None, index=None)
+        # data_item.to_csv(f'result/info/main_oneclass_df_flag_user_extract_item.csv',
+        #                  mode='a', header=None, index=None)
         return df_flag_user_extract
 
     a_user_extract = select_user_flag(a, user_n, 'a')
@@ -166,7 +167,8 @@ def main(df, user_n, session):
         def registration_phase(self):
             try:
                 if list(self.test_f['user']) != 0:
-                    print('\n外れ値として扱うuserのnumber\n', '\n')
+                    print(f'\n外れ値として扱うuserのnumber')
+                    print(list(self.test_f['user']), '\n')
 
                 # モデル
                 models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=0.1),
@@ -215,34 +217,34 @@ def main(df, user_n, session):
                                                                    'FAR': far, 'FRR': frr, 'BER': ber}
                         count += 1
 
-                        # testデータにて汎化性能評価
-                        model.fit(x_train_ss_df)
-                        test_pred = model.predict(self.x_test_ss)
-                        test_normal_result = model.predict(self.x_test_t_ss)
-                        test_anomaly_result = model.predict(self.x_test_f_ss)
+                    # testデータにて汎化性能評価
+                    model.fit(x_train_ss_df)
+                    test_pred = model.predict(self.x_test_ss)
+                    test_normal_result = model.predict(self.x_test_t_ss)
+                    test_anomaly_result = model.predict(self.x_test_f_ss)
 
-                        t_far, t_frr, t_ber = far_frr_ber(test_normal_result, test_anomaly_result)
+                    t_far, t_frr, t_ber = far_frr_ber(test_normal_result, test_anomaly_result)
 
-                        scores_test[str(model).split('(')[0]] = {
-                            'Accuracy': accuracy_score(y_true=y_true, y_pred=test_pred),
-                            'Precision': precision_score(y_true, test_pred),
-                            'Recall': recall_score(y_true, test_pred),
-                            'F1': f1_score(y_true, test_pred),
-                            'AUC': roc_auc_score(y_true,
-                                                 model.decision_function(self.x_test_ss)),
-                            'FAR': t_far, 'FRR': t_frr, 'BER': t_ber}
+                    scores_test[str(model).split('(')[0]] = {
+                        'Accuracy': accuracy_score(y_true=y_true, y_pred=test_pred),
+                        'Precision': precision_score(y_true, test_pred),
+                        'Recall': recall_score(y_true, test_pred),
+                        'F1': f1_score(y_true, test_pred),
+                        'AUC': roc_auc_score(y_true,
+                                             model.decision_function(self.x_test_ss)),
+                        'FAR': t_far, 'FRR': t_frr, 'BER': t_ber}
 
                 # 結果のまとめ
                 model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
                 result_index = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER']
-                a = np.zeros((4, 8))
+                e = np.zeros((4, 8))
                 for i, m_i in enumerate(model_index):
                     for j, df_i in enumerate(result_index):
-                        b = 0
+                        f = 0
                         for m in range(k):
-                            b += scores[m_i][m][df_i]
-                        a[i][j] = b / k
-                a_df = pd.DataFrame(a, index=model_index, columns=result_index)
+                            f += scores[m_i][m][df_i]
+                        e[i][j] = f / k
+                a_df = pd.DataFrame(e, index=model_index, columns=result_index)
                 print('交差検証k=10の結果')
                 print(a_df)
 
@@ -251,12 +253,13 @@ def main(df, user_n, session):
                 print(s_test[result_index])
 
                 # result_old.csvへ書き出し
-                def output_data(a2, model_index2, result_index2, text):
+                def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
                     os.makedirs('result', exist_ok=True)
                     # Columnの作成
-                    user = pd.Series([self.u_n] * 4, name='user')
+                    users = pd.Series([self.u_n] * 4, name='user')
                     flag = pd.Series([self.flag_n] * 4, name='flag')
+                    sessions = pd.Series([sessions_select] * 4, name='session')
                     performance = pd.Series([text] * 4, name='performance')
                     model2 = pd.Series(model_index2, name='model')
                     # valとtestで条件指定してresult作成
@@ -269,15 +272,15 @@ def main(df, user_n, session):
                         result = result.reset_index()
                         result = result.drop('index', 1)
                     # 全て結合
-                    all_result = pd.concat([user, flag, performance, model2, result], axis=1)
+                    all_result = pd.concat([users, flag, performance, model2, result, sessions], axis=1)
                     # 書き出し
                     all_result.to_csv(f'result/result_2020_10/result_{text}.csv', mode='a', header=False,
                                       index=False)
 
                 # 交差検証の結果の書き出し
-                # output_data(a, model_index, result_index, 'val')
+                # output_data(a, model_index, result_index, 'val', self.session_select)
                 # テストデータの結果の書き出し
-                # output_data(scores_test, model_index, result_index, 'test')
+                # output_data(scores_test, model_index, result_index, 'test', self.session_select)
             except AttributeError as ex:
                 print(f"No train data:{ex}")
                 pass
