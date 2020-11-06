@@ -5,6 +5,7 @@
 import os
 import numpy as np
 import pandas as pd
+import datetime
 
 
 # スケーリング
@@ -128,7 +129,8 @@ def main(df, user_n, session):
         def __init__(self, df_flag, df_flag_user_extract, u_n, flag_n, session_select):
             flag_memori = ['0', 'a', 'b', 'c', 'd']
             print(
-                f'\n-----------------------------------------------------------------\n{user_n} : {flag_memori[flag_n]}'
+                f'\n-----------------------------------------------------------------\n'
+                f'{user_n} : {flag_memori[flag_n]} : {session_select}'
                 f'\n-----------------------------------------------------------------')
             try:
                 self.df_flag = df_flag
@@ -169,6 +171,11 @@ def main(df, user_n, session):
                 if list(self.test_f['user']) != 0:
                     print(f'\n外れ値として扱うuserのnumber')
                     print(list(self.test_f['user']), '\n')
+
+                print(f'train_data: {self.x_train.shape}')
+                print(f'test_data: {self.x_test.shape}\n')
+
+                # print(self.x_train.head(5))
 
                 # モデル
                 models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=0.1),
@@ -255,7 +262,7 @@ def main(df, user_n, session):
                 # result_old.csvへ書き出し
                 def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
-                    os.makedirs('result', exist_ok=True)
+                    os.makedirs('result/result2020_10', exist_ok=True)
                     # Columnの作成
                     users = pd.Series([self.u_n] * 4, name='user')
                     flag = pd.Series([self.flag_n] * 4, name='flag')
@@ -266,21 +273,22 @@ def main(df, user_n, session):
                     if text == 'val':
                         result = pd.DataFrame(a2, columns=result_index2)
                     else:
-                        print('\ntestデータでの結果')
+                        # print('\ntestデータでの結果')
                         result = pd.DataFrame(a2).T
-                        print(result)
+                        # print(result)
                         result = result.reset_index()
                         result = result.drop('index', 1)
                     # 全て結合
                     all_result = pd.concat([users, flag, performance, model2, result, sessions], axis=1)
                     # 書き出し
-                    all_result.to_csv(f'result/result_2020_10/result_{text}.csv', mode='a', header=False,
+                    data_now = datetime.datetime.now().strftime("%Y-%m-%d")
+                    all_result.to_csv(f'result/result2020_10/result_{data_now}_{text}.csv', mode='a', header=False,
                                       index=False)
 
                 # 交差検証の結果の書き出し
-                # output_data(a, model_index, result_index, 'val', self.session_select)
+                output_data(a, model_index, result_index, 'val', self.session_select)
                 # テストデータの結果の書き出し
-                # output_data(scores_test, model_index, result_index, 'test', self.session_select)
+                output_data(scores_test, model_index, result_index, 'test', self.session_select)
             except AttributeError as ex:
                 print(f"No train data:{ex}")
                 pass
@@ -310,7 +318,8 @@ if __name__ == '__main__':
 
     # combination= False
     frank_df = load_frank(False)
-    session_list = ['first', 'latter', 'all']
+    session_list = ['first', 'latter', 'all', 'all_test_shinario2']
     # 41人いるよ
-    for user in range(1, 2):
-        main(frank_df, user, session='first')
+    # user = 35
+    for user in range(1, 42):
+        main(frank_df, user, session='all_test_shinario2')

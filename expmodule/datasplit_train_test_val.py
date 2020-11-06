@@ -87,11 +87,14 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
     # docが1~5のもの
     if session_select == 'first':
         df_first_pre = df_session.query('1<= doc < 6')
-        df_flag_data = df_flag.query('1<= doc < 6')
+        df_flag_data = df_flag.query('1<= doc < 8')
         # docの役目は終わったので消去
         df_first = df_first_pre.drop('doc', axis=1)
         df_flag_pre = df_flag_data.drop('doc', axis=1)
-        # TODO: colunmsの数を確認する
+
+        print(f'df_first_doc: {df_first_pre["doc"].unique()}')
+        print(f'df_first: {df_first[df_first["user"] == user_n].shape[0]}')
+
         if df_first['user'].count() >= (train_size + test_size):
             # 説明変数と目的変数に分割
             x, y = x_y_split(df_first)
@@ -118,23 +121,33 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
 
     # docが6or7のもの
     elif session_select == 'latter':
-        df_session2 = df_session.query('6 <= doc < 8')
-        df_first_pre = df_session2.query('1<= doc < 6')
-        df_latter_pre = df_session2.query('6 <= doc < 8')
-        df_flag_data = df_flag.query('6 <= doc < 8')
+        # df_session2 = df_session.query('6 <= doc < 8')
+        df_first_pre = df_session.query('1<= doc < 6')
+        df_latter_pre = df_session.query('6 <= doc < 8')
+        df_flag_data = df_flag.query('1 <= doc < 8')
         # docの役目は終わったので消去
         df_first = df_first_pre.drop('doc', axis=1)
         df_latter = df_latter_pre.drop('doc', axis=1)
         df_flag_pre = df_flag_data.drop('doc', axis=1)
+
+        print(f'df_first_doc: {df_first_pre["doc"].unique()}')
+        print(f'df_first: {df_first[df_first["user"] == user_n].shape[0]}')
+        print(f'df_latter_doc: {df_latter_pre["doc"].unique()}')
+        print(f'df_latter: {df_latter[df_latter["user"] == user_n].shape[0]}')
+
         if df_first['user'].count() >= train_size and df_latter['user'].count() >= test_size:
             # 説明変数と目的変数に分割
-            x_first, y_first = x_y_split(df_first)
+            x, y = x_y_split(df_first)
             x_latter, y_latter = x_y_split(df_latter)
 
             x_other_latter, x_test_t, y_other_latter, y_test_t = train_test_split(x_latter, y_latter,
                                                                                   test_size=test_size,
                                                                                   random_state=0, shuffle=True)
-            x_train, x_other_first, y_train, y_other_first = train_test_split(x_first, y_first, train_size=train_size,
+
+            # firstとtrainデータが同じになるように調整
+            _x_train_all, _x_test_t, _y_train_all, _y_test_t = train_test_split(x, y, test_size=test_size, random_state=0,
+                                                                                shuffle=True)
+            x_train, x_other_first, y_train, y_other_first = train_test_split(_x_train_all, _y_train_all, train_size=train_size,
                                                                               random_state=0, shuffle=True)
             fake_data_except_test_f, test_f = _outlier(df_flag_pre, user_n, test_size)
             x_test, y_test, x_test_f, y_test_f = _tf_concat(x_test_t, y_test_t, test_f)
@@ -152,6 +165,9 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
         df_flag_data = df_flag.query('1<= doc < 8')
         df_all = df_all_pre.drop('doc', axis=1)
         df_flag_pre = df_flag_data.drop('doc', axis=1)
+
+        print(f'df_all_doc: {df_all_pre["doc"].unique()}')
+        print(f'df_all: {df_all[df_all["user"] == user_n].shape[0]}')
         # データ数が50以上あるか
         if df_all['user'].count() >= (train_size + test_size):
             # 説明変数と目的変数に分割
@@ -175,7 +191,7 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
 
         else:
             print('None')
-            return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            return 0, 0, 0, 0, 0, 0, 0, 0, 0
 
     # testデータがlatterシナリオ
     elif session_select == 'all_test_shinario2':
@@ -189,6 +205,11 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
         df_latter = df_latter_pre.drop('doc', axis=1)
         df_flag_pre = df_flag_data.drop('doc', axis=1)
 
+        print(f'df_first_doc: {df_first_pre["doc"].unique()}')
+        print(f'df_first: {df_first[df_first["user"] == user_n].shape[0]}')
+        print(f'df_latter_doc: {df_latter_pre["doc"].unique()}')
+        print(f'df_latter: {df_latter[df_latter["user"] == user_n].shape[0]}')
+
         # データ数が(train_size + test_size)以上あるか
         if df_first['user'].count() >= train_size and df_latter['user'].count() >= test_size:
             # 説明変数と目的変数に分割
@@ -200,6 +221,7 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
                                                                                   random_state=0, shuffle=True)
 
             def train_conbinated(other_latter_len, xx_other_latter, yy_other_latter, xx_first, yy_first):
+                print(f'conbinated_data: {other_latter_len}')
                 num = 10
                 if other_latter_len < num:
                     x_train_pre, re_x_other_first, y_train_pre, re_y_other_first = train_test_split(xx_first, yy_first,
@@ -235,7 +257,7 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
 
         else:
             print('None')
-            return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            return 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 
 if __name__ == "__main__":
