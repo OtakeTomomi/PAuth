@@ -1,6 +1,10 @@
 """
 実験用プログラム 1ストロークの1クラス分類
 まずこれを完成させて結果を出す
+
+
+実験１はだいたい終了
+
 """
 import os
 import numpy as np
@@ -144,16 +148,11 @@ def main(df, user_n, session):
                     = datasplit_session(self.df_flag, self.df_flag_user_extract, self.u_n, self.session_select, train_size=40)
 
                 # 標準化
-                # print(self.x_train.columns)
                 ss = preprocessing.StandardScaler()
                 ss.fit(self.x_train)
                 self.x_train_ss = ss.transform(self.x_train)
                 self.x_test_ss = ss.transform(self.x_test)
                 self.x_test_t_ss = ss.transform(self.x_test_t)
-                # print(self.x_test_t.columns)
-                # print(self.x_test_t.shape)
-                # print(self.x_test_f.columns)
-                # print(self.x_test_f.shape)
                 self.x_test_f_ss = ss.transform(self.x_test_f)
 
                 self.columns = self.x_train.columns.values
@@ -259,7 +258,7 @@ def main(df, user_n, session):
                 print(f'認証用データ')
                 print(s_test[result_index])
 
-                # result_old.csvへ書き出し
+                # 書き出し
                 def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
                     os.makedirs('result/result2020_10', exist_ok=True)
@@ -286,7 +285,7 @@ def main(df, user_n, session):
                                       index=False)
 
                 # 交差検証の結果の書き出し
-                output_data(a, model_index, result_index, 'val', self.session_select)
+                output_data(e, model_index, result_index, 'val', self.session_select)
                 # テストデータの結果の書き出し
                 output_data(scores_test, model_index, result_index, 'test', self.session_select)
             except AttributeError as ex:
@@ -298,6 +297,9 @@ def main(df, user_n, session):
             try:
                 test = 0
                 print(f'{test} No data')
+
+
+
             except AttributeError as ex:
                 print(f"No test data:{ex}")
                 pass
@@ -321,5 +323,6 @@ if __name__ == '__main__':
     session_list = ['first', 'latter', 'all', 'all_test_shinario2']
     # 41人いるよ
     # user = 35
-    for user in range(1, 42):
-        main(frank_df, user, session='all_test_shinario2')
+    for sessions in session_list:
+        for user in range(1, 42):
+            main(frank_df, user, session=sessions)
