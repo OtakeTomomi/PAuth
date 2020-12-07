@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import datetime
 
-
 # スケーリング
 from sklearn import preprocessing
 
@@ -42,13 +41,10 @@ warnings.filterwarnings('ignore')
 def main(df, user_n, session):
 
     # データをmulti_flagを基準に分割
-    # a,b,c,dのストローク方向はflag_splitに記載
-    # 上下左右のflagをもとにデータを分割
     aa, ab, ac, ad, ba, bb, bc, bd, ca, cb, cc, cd, da, db, dc, dd = flag16(df, 'multi_flag')
 
     # flagごとに選択したユーザを抽出する
     def select_user_flag(df_flag, u_n, text):
-        # フォルダがなければ自動的に作成
         os.makedirs('result/info', exist_ok=True)
         df_flag_user_extract = df_flag[df_flag['user'] == u_n]
         # Comment: 1-41人全員分行ったらコメントアウト→2020/11/05済
@@ -105,7 +101,10 @@ def main(df, user_n, session):
         # 検証用データの個数調査
         val_t_size = y_val_t.count()
         # テスト用に使用する他人のデータ以外から検証用データと同じ数選択する
-        val_outlier = fake_data_except_test_f[:val_t_size]
+        # val_outlier = fake_data_except_test_f[:val_t_size]
+
+        # テスト用に使用する他人のデータ以外から検証用データと同じ数選択する：ランダム
+        val_outlier = fake_data_except_test_f.sample(n=val_t_size)
 
         # print(val_outlier)
 
@@ -157,16 +156,11 @@ def main(df, user_n, session):
                                         train_size=40)
 
                 # 標準化
-                # print(self.x_train.columns)
                 ss = preprocessing.StandardScaler()
                 ss.fit(self.x_train)
                 self.x_train_ss = ss.transform(self.x_train)
                 self.x_test_ss = ss.transform(self.x_test)
                 self.x_test_t_ss = ss.transform(self.x_test_t)
-                # print(self.x_test_t.columns)
-                # print(self.x_test_t.shape)
-                # print(self.x_test_f.columns)
-                # print(self.x_test_f.shape)
                 self.x_test_f_ss = ss.transform(self.x_test_f)
 
                 self.columns = self.x_train.columns.values
@@ -191,10 +185,11 @@ def main(df, user_n, session):
                 # print(self.x_train.head(5))
 
                 # モデル
-                models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=0.1),
-                          IsolationForest(n_estimators=1, contamination='auto', behaviour='new', random_state=0),
-                          OneClassSVM(nu=0.1, kernel="rbf"),
-                          EllipticEnvelope(contamination=0.1, random_state=0)]
+                contamination = 0.01
+                models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=contamination),
+                          IsolationForest(n_estimators=1, contamination=contamination, behaviour='new', random_state=0),
+                          OneClassSVM(nu=contamination, kernel="rbf"),
+                          EllipticEnvelope(contamination=contamination, random_state=0)]
                 scores = {'LocalOutlierFactor': {}, 'IsolationForest': {}, 'OneClassSVM': {}, 'EllipticEnvelope': {}}
                 scores_test = {}
 
@@ -295,7 +290,7 @@ def main(df, user_n, session):
                     all_result = pd.concat([users, flag, performance, model2, result, sessions], axis=1)
                     # 書き出し
                     data_now = datetime.datetime.now().strftime("%Y-%m-%d")
-                    all_result.to_csv(f'result/result2020_10/result_2020-11-07_{text}_combination_91.csv', mode='a', header=False,
+                    all_result.to_csv(f'result/result2020_10/result_2020-11-09_{text}_combination_91.csv', mode='a', header=False,
                                       index=False)
 
                 # 交差検証の結果の書き出し

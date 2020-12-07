@@ -97,7 +97,10 @@ def main(df, user_n, session):
         # 検証用データの個数調査
         val_t_size = y_val_t.count()
         # テスト用に使用する他人のデータ以外から検証用データと同じ数選択する
-        val_outlier = fake_data_except_test_f[:val_t_size]
+        # val_outlier = fake_data_except_test_f[:val_t_size]
+
+        # テスト用に使用する他人のデータ以外から検証用データと同じ数選択する：ランダム
+        val_outlier = fake_data_except_test_f.sample(n=val_t_size)
 
         # print(val_outlier)
 
@@ -177,10 +180,11 @@ def main(df, user_n, session):
                 # print(self.x_train.head(5))
 
                 # モデル
-                models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=0.1),
-                          IsolationForest(n_estimators=1, contamination='auto', behaviour='new', random_state=0),
-                          OneClassSVM(nu=0.1, kernel="rbf"),
-                          EllipticEnvelope(contamination=0.1, random_state=0)]
+                contamination = 0.01
+                models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=contamination),
+                          IsolationForest(n_estimators=1, contamination=contamination, behaviour='new', random_state=0),
+                          OneClassSVM(nu=contamination, kernel="rbf"),
+                          EllipticEnvelope(contamination=contamination, random_state=0)]
                 scores = {'LocalOutlierFactor': {}, 'IsolationForest': {}, 'OneClassSVM': {}, 'EllipticEnvelope': {}}
                 scores_test = {}
 
@@ -292,17 +296,19 @@ def main(df, user_n, session):
                 print(f"No train data:{ex}")
                 pass
 
+
+
         def authentication_phase(self):
             # TODO: あとで考える
             try:
                 test = 0
                 print(f'{test} No data')
 
-
-
             except AttributeError as ex:
                 print(f"No test data:{ex}")
                 pass
+
+
 
     oneclassone_a = OneClassOne(a, a_user_extract, user_n, 1, session)
     oneclassone_a.registration_phase()
@@ -318,11 +324,10 @@ def main(df, user_n, session):
 if __name__ == '__main__':
     print("実験用プログラム 1ストロークの1クラス分類")
 
-    # combination= False
+    # combination = False
     frank_df = load_frank(False)
     session_list = ['first', 'latter', 'all', 'all_test_shinario2']
     # 41人いるよ
-    # user = 35
     for sessions in session_list:
         for user in range(1, 42):
             main(frank_df, user, session=sessions)
