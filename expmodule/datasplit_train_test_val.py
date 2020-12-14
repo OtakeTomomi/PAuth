@@ -31,10 +31,16 @@ def _outlier(df_flag, user_n, y_test_t_size):
     return fake_data_except_outlier, outlier
 
 
+def test_f_value(test_f_list):
+    return test_f_list
+
+
 # testデータと外れ値データの結合
 def _tf_concat(x_test_t, y_test_t, test_f):
     # outlier == test_f
     test_f_user_n = list(test_f['user'])
+    test_f_value(test_f_user_n)
+
     # userをすべて０に変更
     test_f2 = test_f.copy()
     test_f_user_n_change0 = test_f2.replace({'user': test_f_user_n}, 0)
@@ -81,6 +87,7 @@ def doc_conform(df_flag):
         print(f'{i}:{sorted(doc_list)}')
 
 
+
 def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all', train_size=40, test_size=10):
     df_session = df_flag_user_extract.copy()
     # df_flag_data = df_flag.copy()
@@ -93,7 +100,7 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
         df_flag_pre = df_flag_data.drop('doc', axis=1)
 
         print(f'df_first_doc: {df_first_pre["doc"].unique()}')
-        print(f'df_first: {df_first[df_first["user"] == user_n].shape[0]}')
+        print(f'df_first: {df_first[df_first["user"] == user_n].shape}')
 
         if df_first['user'].count() >= (train_size + test_size):
             # 説明変数と目的変数に分割
@@ -131,9 +138,9 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
         df_flag_pre = df_flag_data.drop('doc', axis=1)
 
         print(f'df_first_doc: {df_first_pre["doc"].unique()}')
-        print(f'df_first: {df_first[df_first["user"] == user_n].shape[0]}')
+        print(f'df_first: {df_first[df_first["user"] == user_n].shape}')
         print(f'df_latter_doc: {df_latter_pre["doc"].unique()}')
-        print(f'df_latter: {df_latter[df_latter["user"] == user_n].shape[0]}')
+        print(f'df_latter: {df_latter[df_latter["user"] == user_n].shape}')
 
         if df_first['user'].count() >= train_size and df_latter['user'].count() >= test_size:
             # 説明変数と目的変数に分割
@@ -167,7 +174,7 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
         df_flag_pre = df_flag_data.drop('doc', axis=1)
 
         print(f'df_all_doc: {df_all_pre["doc"].unique()}')
-        print(f'df_all: {df_all[df_all["user"] == user_n].shape[0]}')
+        print(f'df_all: {df_all[df_all["user"] == user_n].shape}')
         # データ数が50以上あるか
         if df_all['user'].count() >= (train_size + test_size):
             # 説明変数と目的変数に分割
@@ -206,9 +213,9 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
         df_flag_pre = df_flag_data.drop('doc', axis=1)
 
         print(f'df_first_doc: {df_first_pre["doc"].unique()}')
-        print(f'df_first: {df_first[df_first["user"] == user_n].shape[0]}')
+        print(f'df_first: {df_first[df_first["user"] == user_n].shape}')
         print(f'df_latter_doc: {df_latter_pre["doc"].unique()}')
-        print(f'df_latter: {df_latter[df_latter["user"] == user_n].shape[0]}')
+        print(f'df_latter: {df_latter[df_latter["user"] == user_n].shape}')
 
         # データ数が(train_size + test_size)以上あるか
         if df_first['user'].count() >= train_size and df_latter['user'].count() >= test_size:
@@ -258,6 +265,8 @@ def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all
         else:
             print('None')
             return 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+
 
 
 if __name__ == "__main__":
