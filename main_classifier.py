@@ -69,10 +69,10 @@ def main(df, select_n):
     a, b, c, d = flag4(df, 'flag')
 
     # 実験に使用するユーザの選択とソート
-    a_user = user_select(a, select_n)
-    b_user = user_select(b, select_n)
-    c_user = user_select(c, select_n)
-    d_user = user_select(d, select_n)
+    a = user_select(a, select_n)
+    b = user_select(b, select_n)
+    c = user_select(c, select_n)
+    d = user_select(d, select_n)
 
     # 第2段階: 保留
 

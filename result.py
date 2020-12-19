@@ -1,75 +1,123 @@
 import pandas as pd
 import numpy as np
+import os
+import pprint
+
+
+# Comment：変更必要あり
+PATH = 'result/result2020_12'
+PATH2 = 'result/result2020_12/matome20201211comb100'
+filename_val = 'result_2020-12-11_val_combination_100'
+filename_test = 'result_2020-12-11_test_combination_100'
+
 
 # Columnのリスト
-val_columns = ['user', 'flag', 'performance', 'model', 'Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER']
-test_columns = ['user', 'flag', 'performance', 'model', 'AUC', 'Accuracy', 'BER', 'F1', 'FAR', 'FRR', 'Precision', 'Recall']
+val_columns = ['user', 'flag', 'performance', 'model', 'Accuracy', 'Precision',
+               'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER', 'scenario']
+test_columns = ['user', 'flag', 'performance', 'model', 'AUC', 'Accuracy',
+                'BER', 'F1', 'FAR', 'FRR', 'Precision', 'Recall', 'scenario']
+
+session_list = ['first', 'latter', 'all', 'all_test_shinario2']
 
 model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
 
 # 結果のデータを読み込み
 # 交差検証データ
-val_df = pd.read_csv("result/result_val.csv", sep=",", header=None)
+val_df = pd.read_csv(f"{PATH}/{filename_val}.csv", sep=",", header=None)
 val_df.columns = val_columns
 # テストデータ
-test_df = pd.read_csv("result/result_test.csv", sep=",", header=None)
+test_df = pd.read_csv(f"{PATH}/{filename_test}.csv", sep=",", header=None)
 test_df.columns = test_columns
 
 # multi_indexの設定
-val_m_df = val_df.set_index(['user', 'flag', 'performance', 'model'])
-test_m_df = val_df.set_index(['user', 'flag', 'performance', 'model'])
+val_m_df = val_df.set_index(['scenario', 'user', 'flag', 'performance', 'model'])
+test_m_df = test_df.set_index(['scenario', 'user', 'flag', 'performance', 'model'])
+
+# print(val_m_df)
+
 
 # 各flagにおいてデータを有するユーザの数
 def count_table(df):
     ct_list = sorted(list(set((df.index.get_level_values('flag')))))
-    ct = {}
-    for i in ct_list:
-        ct_n = df['Accuracy'].xs([i, 'val', 'LocalOutlierFactor'], level=['flag', 'performance', 'model']).count()
-        ct[i] = ct_n
+    ct = {'first':{}, 'latter':{}, 'all':{}, 'all_test_shinario2':{}}
+    for session in session_list:
+        for i in ct_list:
+            ct_n = df['Accuracy'].xs([session, i, 'val', 'LocalOutlierFactor'], level=['scenario', 'flag', 'performance', 'model']).count()
+            ct[session][i] = ct_n
+        # print(ct)
     return ct, ct_list
+
+
 ct, ct_list = count_table(val_m_df)
-# print(ct)
+pprint.pprint(ct)
+
+os.makedirs(PATH2, exist_ok=True)
 
 # 書き出し用の処理
-'''
-どう分けるかが問題
-'''
-def write_data(df,model_index,val_columns, flag_n, text):
+def write_data(df, model_index, columns, flag_n, text, perf, session):
     flag = pd.Series([flag_n] * 4, name='flag')
+    performance = pd.Series([perf] * 4, name='performance')
+    sessions = pd.Series([session] * 4, name='session')
     model = pd.Series(model_index, name='model')
-    df = pd.DataFrame(df, index=model_index, columns=val_columns)
+    df = pd.DataFrame(df, index=model_index, columns=columns)
     print(df)
     df = df.reset_index()
     df = df.drop('index', 1)
-    re = pd.concat([flag, model, df], axis=1)
-    re.to_csv(f'result/result_{text}.csv', mode='a', header=False, index=False)
-    return df
+    re = pd.concat([sessions, flag, performance, model, df], axis=1)
+    if perf == 'val':
+        re.to_csv(f'{PATH2}/result_{text}_{perf}.csv', mode='a', header=False, index=False)
+        return re
+    elif perf == 'test':
+        re.to_csv(f'{PATH2}/result_{text}_{perf}.csv', mode='a', header=False, index=False)
+        return re
+
+
 # 各flag × 各modelごとの結果を算出
-def calcuration(ct, ct_list,df, val_columns, model_index):
-    for k in ct_list:
-        a, b, c, d = np.zeros((4, 8)), np.zeros((4, 8)), np.zeros((4, 8)), np.zeros((4, 8))
-        for i, model in enumerate(model_index):
-            for j, column in enumerate(val_columns[4:]):
-                data = df[column].xs([k, 'val', model], level=['flag', 'performance', 'model'])
-                a[i][j] = data.mean()
-                b[i][j] = data.max()
-                c[i][j] = data.min()
-                d[i][j] = data.std()
+def calc(ct, ct_list, df, columns, model_index, perf, session_list):
+    for s in session_list:
+        for k in ct_list:
+            a, b, c, d = np.zeros((4, 8)), np.zeros((4, 8)), np.zeros((4, 8)), np.zeros((4, 8))
+            for i, model in enumerate(model_index):
+                for j, column in enumerate(columns[4:12]):
+                    data = df[column].xs([s, k, perf, model], level=['scenario', 'flag', 'performance', 'model'])
+                    # print(data)
+                    a[i][j] = data.mean()
+                    # print(a)
+                    b[i][j] = data.max()
+                    # print(b)
+                    c[i][j] = data.min()
+                    # print(c)
+                    d[i][j] = data.std()
+                    # print(d)
 
-        memori = ['0', 'a', 'b', 'c', 'd']
-        # 該当ユーザの抽出
-        n = df.xs([k, 'val', 'LocalOutlierFactor'], level=['flag', 'performance', 'model'])
-        menber = list(n.index.get_level_values('user'))
-        print(f'\n===================================================================================================='
-              f'\nflag : {memori[k//10]}+{memori[k%10]}, user数 : {ct[k]}人, 該当ユーザ : {menber}'
-              f'\n====================================================================================================')
-        print(f'\n平均')
-        write_data(a, model_index, val_columns[4:], k, 'mean')
-        print(f'\n最大')
-        write_data(b, model_index, val_columns[4:], k, 'max')
-        print(f'\n最小')
-        write_data(c, model_index, val_columns[4:], k, 'min')
-        print(f'\n標準偏差')
-        write_data(d, model_index, val_columns[4:], k, 'std')
+            memori = ['0', 'a', 'b', 'c', 'd']
+            # 該当ユーザの抽出
+            n = df.xs([s, k, perf, 'LocalOutlierFactor'], level=['scenario', 'flag', 'performance', 'model'])
+            # print(n)
+            menber = list(n.index.get_level_values('user'))
+            if k//10 == 0:
+                print(f'\n===================================================================================================='
+                      f'\nflag : {memori[k%10]}, {perf}, user数 : {ct[s][k]}人, 該当ユーザ : {menber}, シナリオ：{s}'
+                      f'\n====================================================================================================')
+            else:
+                print(
+                    f'\n===================================================================================================='
+                    f'\nflag : {memori[k // 10]}+{memori[k % 10]}, {perf}, user数 : {ct[s][k]}人, 該当ユーザ : {menber}, シナリオ：{s}'
+                    f'\n====================================================================================================')
 
-calcuration(ct,ct_list,val_m_df,val_columns,model_index)
+            print(f'\n平均')
+            # print(a)
+            write_data(a, model_index, columns[4:12], k, 'mean', perf, s)
+            print(f'\n最大')
+            # print(b)
+            write_data(b, model_index, columns[4:12], k, 'max', perf, s)
+            print(f'\n最小')
+            # print(c)
+            write_data(c, model_index, columns[4:12], k, 'min', perf, s)
+            print(f'\n標準偏差')
+            # print(d)
+            write_data(d, model_index, columns[4:12], k, 'std', perf, s)
+
+
+calc(ct, ct_list, val_m_df, val_columns, model_index, 'val', session_list)
+calc(ct, ct_list, test_m_df, test_columns, model_index, 'test', session_list)

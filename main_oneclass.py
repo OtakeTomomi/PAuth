@@ -100,6 +100,7 @@ def main(df, user_n, session):
         # val_outlier = fake_data_except_test_f[:val_t_size]
 
         # テスト用に使用する他人のデータ以外から検証用データと同じ数選択する：ランダム
+        # シード値は指定していない
         val_outlier = fake_data_except_test_f.sample(n=val_t_size)
 
         # print(val_outlier)
