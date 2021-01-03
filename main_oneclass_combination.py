@@ -43,6 +43,29 @@ def main(df, user_n, session):
     # データをmulti_flagを基準に分割
     aa, ab, ac, ad, ba, bb, bc, bd, ca, cb, cc, cd, da, db, dc, dd = flag16(df, 'multi_flag')
 
+    def timeprocess(dffue):
+        #     for i in range(len(df)):
+        dffue['between'] = dffue['stroke_inter'].iloc[:] - dffue['stroke_duration'].iloc[:]
+
+        def outlier_2s(dffue):
+            col = dffue['between']
+            # 平均と標準偏差
+            average = np.mean(col)
+            sd = np.std(col)
+
+            # 外れ値の基準点
+            outlier_min = average - (sd) * 2
+            outlier_max = average + (sd) * 2
+
+            # 範囲から外れている値を除く
+            col[col < outlier_min] = None
+            col[col > outlier_max] = None
+            return dffue.dropna(how='any', axis=0)
+
+        dffue2 = outlier_2s(dffue)
+        dffue3 = dffue2.drop('between', axis=1)
+        return dffue3
+
     # flagごとに選択したユーザを抽出する
     def select_user_flag(df_flag, u_n, text):
         os.makedirs('result/info', exist_ok=True)
@@ -50,7 +73,12 @@ def main(df, user_n, session):
         # Comment: 1-41人全員分行ったらコメントアウト→2020/11/05済
         data_item = pd.DataFrame([u_n, text, len(df_flag_user_extract)]).T
         # data_item.to_csv(f'result/info/main_oneclass_combination_df_flag_user_extract_item.csv', mode='a', header=None, index=None)
-        return df_flag_user_extract
+
+        df_flag_user_extract2 = timeprocess(df_flag_user_extract)
+        data_item[3] = pd.DataFrame([len(df_flag_user_extract2)])
+        # Comment: 1-41人全員分行ったらコメントアウト→2020/11/05済→2021/01/03済
+        # data_item.to_csv(f'result2021/main_oc_comb_flag_user_extract_item.csv', mode='a', header=None, index=None)
+        return df_flag_user_extract2
 
     aa_user_extract = select_user_flag(aa, user_n, 'aa')
     ab_user_extract = select_user_flag(ab, user_n, 'ab')
@@ -153,7 +181,7 @@ def main(df, user_n, session):
                 self.x_train, self.y_train, self.x_test, self.y_test, self.x_test_t, \
                     self.y_test_t, self.x_test_f, self.y_test_f, self.test_f, self.fake_data_except_test_f \
                     = datasplit_session(self.df_flag, self.df_flag_user_extract, self.u_n, self.session_select,
-                                        train_size=40)
+                                        train_size=50)
 
                 # 標準化
                 ss = preprocessing.StandardScaler()
@@ -271,7 +299,7 @@ def main(df, user_n, session):
                 def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
                     # Comment:変更
-                    PATH='result/result2020_12'
+                    PATH= 'result2021part1'
                     os.makedirs(PATH, exist_ok=True)
                     # Columnの作成
                     users = pd.Series([self.u_n] * 4, name='user')
@@ -292,7 +320,7 @@ def main(df, user_n, session):
                     all_result = pd.concat([users, flag, performance, model2, result, sessions], axis=1)
                     # 書き出し
                     data_now = datetime.datetime.now().strftime("%Y-%m-%d")
-                    all_result.to_csv(f'{PATH}/result_{data_now}_{text}_combination_100.csv', mode='a', header=False,
+                    all_result.to_csv(f'{PATH}/result_{data_now}_{text}_comb.csv', mode='a', header=False,
                                       index=False)
 
                 # 交差検証の結果の書き出し
@@ -355,8 +383,10 @@ def main(df, user_n, session):
 
 if __name__ == '__main__':
     print("実験用プログラム 2ストロークの1クラス分類")
+
     # 組み合わせたものを読み込む→True
     frank_df = load_frank(True)
+    # frank_df = timeprocess(frank_df_pre)
     session_list = ['first', 'latter', 'all', 'all_test_shinario2']
     for sessions in session_list:
         for user in range(1, 42):
