@@ -1,186 +1,85 @@
 '''
-ストローク方向を考慮したもの
-
-2019/11/18
-交差検証の実装と出力
-
-2019/11/28
-２ストローク
-
-2019/12/02
-交差検証用の外れ値のスケール変換を忘れていたため処理を追加
-16パターンに分けるよ
-PCAやってみた
-https://aizine.ai/unsupervised-learning0531/
-
-2019/12/05
-pca追加
-
-2019/12/13
-csv書き出し用の部分を実装
-
-
-特徴追加したもの
-
-
-20200121実験やり直し
-
-間違えて作った特徴量を追加
-
- 2020/4月より作り直し
+メインの実験プログラムのつもり
+条件：2ストロークの組み合わせ，分類器は1クラス分類器使用.
 '''
 
-# %matplotlib inline
-import pandas as pd
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-from IPython.display import display
-import sklearn
+# from IPython.display import display
+
+# モデル
 from sklearn import svm
-from sklearn import preprocessing
-from sklearn.neighbors import KernelDensity, LocalOutlierFactor
-from sklearn.mixture import GaussianMixture
+from sklearn.svm import OneClassSVM
+# from sklearn.mixture import GaussianMixture
+# from sklearn.neighbors import KernelDensity
 from sklearn.ensemble import IsolationForest
 from sklearn.covariance import EllipticEnvelope
-import copy
-from pandas import DataFrame
+from sklearn.neighbors import LocalOutlierFactor
 
-import pickle
+#スケーリング
+from sklearn import preprocessing
+
+# その他
+from tqdm import tqdm
+# from sklearn.externals import joblib
+
 
 # warning inogre code
 import warnings
 warnings.filterwarnings('ignore')
 
-def load_frank_data():
-    # データの読み込み
-    df = pd.read_csv("comm_datas_omake.csv", sep=",")
-
-    # Document_IDと電話番号の削除
-    df_drop = df.drop({'Unnamed: 0','flag','user2','flag2','user_ave','flag_ave'},axis=1)
-    df_dropna = df_drop.dropna(axis = 0, how = 'any')
-
-    user = df_dropna.groupby("user")
-    index = DataFrame(user.size().sort_values(ascending=False))
-    list_index = index.index.values
-    # print('user')
-
-    return df_dropna
 # データの読み込み
-df = load_frank_data()
+from old import read_data as rd
 
-# multi_flagをもとにデータを分割するクラス
-def flag_split(df):
-    df2 = df
-    for flag, sdf in df2.groupby('multi_flag'):
-        sdf = sdf.reset_index(drop=True)
-        if flag == 11:
-            uu = sdf.drop('multi_flag',axis=1)
-        elif flag == 12 :
-            ud = sdf.drop('multi_flag',axis=1)
-        elif flag == 13:
-            ul = sdf.drop('multi_flag',axis=1)
-        elif flag == 14:
-            ur = sdf.drop('multi_flag',axis=1)
-        elif flag == 21:
-            du = sdf.drop('multi_flag',axis=1)
-        elif flag == 22 :
-            dd = sdf.drop('multi_flag',axis=1)
-        elif flag == 23:
-            dl = sdf.drop('multi_flag',axis=1)
-        elif flag == 24:
-            dr = sdf.drop('multi_flag',axis=1)
-        elif flag == 31:
-            lu = sdf.drop('multi_flag',axis=1)
-        elif flag == 32 :
-            ld = sdf.drop('multi_flag',axis=1)
-        elif flag == 33:
-            ll = sdf.drop('multi_flag',axis=1)
-        elif flag == 34:
-            lr = sdf.drop('multi_flag',axis=1)
-        elif flag == 41:
-            ru = sdf.drop('multi_flag',axis=1)
-        elif flag == 42 :
-            rd = sdf.drop('multi_flag',axis=1)
-        elif flag == 43:
-            rl = sdf.drop('multi_flag',axis=1)
-        else:
-            rr = sdf.drop('multi_flag',axis=1)
-    # flagごとのデータを返す
-    return uu, ud, ul, ur, du, dd, dl, dr, lu, ld, ll, lr, ru, rd, rl, rr
-uu, ud, ul, ur, du, dd, dl, dr, lu, ld, ll, lr, ru, rd, rl, rr = flag_split(df)
+frank_df = rd.load_frank_data()
 
-def index_select(st):
-    user = st.groupby("user")
-    index = DataFrame(user.size().sort_values(ascending=False))
-    list_index = index.index.values
-    print('選択したflagに含まれるメンバー(データの多い順)\n',list_index)
-    return list_index
+# データをmulti_flagを基準に分割
+# a,b,c,dのストローク方向はflag_splitに記載
+from exp_module import flag_split
+aa, ab, ac, ad, ba, bb, bc, bd, ca, cb, cc, cd, da, db, dc, dd = flag_split.frank_fs(frank_df)
+# 各multi_flagに含まれる各ユーザのデータ数の多い順について確認したい場合にはlist_index = conform.conf_sel_flag_qty()で確認可能ではある
 
-print('\n-----------------------------------------------------------------\nup + up\n-----------------------------------------------------------------')
-list_index11= index_select(uu)
-print('\n-----------------------------------------------------------------\nup + down\n-----------------------------------------------------------------')
-list_index12= index_select(ud)
-print('\n-----------------------------------------------------------------\nup + left\n-----------------------------------------------------------------')
-list_index13= index_select(ul)
-print('\n-----------------------------------------------------------------\nup + right\n-----------------------------------------------------------------')
-list_index14= index_select(ur)
-print('\n-----------------------------------------------------------------\ndown + up\n-----------------------------------------------------------------')
-list_index21= index_select(du)
-print('\n-----------------------------------------------------------------\ndown + down\n-----------------------------------------------------------------')
-list_index22= index_select(dd)
-print('\n-----------------------------------------------------------------\ndown + left\n-----------------------------------------------------------------')
-list_index23= index_select(dl)
-print('\n-----------------------------------------------------------------\ndown + right\n-----------------------------------------------------------------')
-list_index24= index_select(dr)
-print('\n-----------------------------------------------------------------\nleft + up\n-----------------------------------------------------------------')
-list_index31= index_select(lu)
-print('\n-----------------------------------------------------------------\nleft + down\n-----------------------------------------------------------------')
-list_index32= index_select(ld)
-print('\n-----------------------------------------------------------------\nleft + left\n-----------------------------------------------------------------')
-list_index33= index_select(ll)
-print('\n-----------------------------------------------------------------\nleft + right\n-----------------------------------------------------------------')
-list_index34= index_select(lr)
-print('\n-----------------------------------------------------------------\nright + up\n-----------------------------------------------------------------')
-list_index41= index_select(ru)
-print('\n-----------------------------------------------------------------\nright + down\n-----------------------------------------------------------------')
-list_index42= index_select(rd)
-print('\n-----------------------------------------------------------------\nright + left\n-----------------------------------------------------------------')
-list_index43= index_select(rl)
-print('\n-----------------------------------------------------------------\nright + right\n-----------------------------------------------------------------')
-list_index44= index_select(rr)
-# print('\n選択したflagに含まれるメンバー(データの多い順)\n',list_index)
-
-
-def sentaku(st,n):
-    df_h_select = st[st['user'] == n]
-    ff = df_h_select.groupby("user")
-#     print(ff.size())
-    return df_h_select
+# 選択されたユーザのデータを各aa~ddから抽出
+# select_user_from_frank_fs
+def sel_user_ffs(sdf, user_n):
+    sdf_sel_u = sdf[sdf['user'] == user_n]
+    ff = sdf_sel_u.groupby("user")
+    # print(ff.size())
+    return sdf_sel_u
 
 # コマンドラインからどのユーザを選択するか選ぶ
-print("\nメンバーの選択")
-n4 = input('>> ')
-user_n = int(n4)
+user_n = int(input('\nユーザの選択1~41 >> '))
 
-user_select11 = sentaku(uu,user_n)
-user_select12 = sentaku(ud,user_n)
-user_select13 = sentaku(ul,user_n)
-user_select14 = sentaku(ur,user_n)
+# 各multi_flagごとに選択したユーザを抽出する
+selu_aa = sel_user_ffs(aa, user_n)
+selu_ab = sel_user_ffs(ab, user_n)
+selu_ac = sel_user_ffs(ac, user_n)
+selu_ad = sel_user_ffs(ad, user_n)
 
-user_select21 = sentaku(du,user_n)
-user_select22 = sentaku(dd,user_n)
-user_select23 = sentaku(dl,user_n)
-user_select24 = sentaku(dr,user_n)
+selu_ba = sel_user_ffs(ba, user_n)
+selu_bb = sel_user_ffs(bb, user_n)
+selu_bc = sel_user_ffs(bc, user_n)
+selu_bd = sel_user_ffs(bd, user_n)
 
-user_select31 = sentaku(lu,user_n)
-user_select32 = sentaku(ld,user_n)
-user_select33 = sentaku(ll,user_n)
-user_select34 = sentaku(lr,user_n)
+selu_ca = sel_user_ffs(ca, user_n)
+selu_cb = sel_user_ffs(cb, user_n)
+selu_cc = sel_user_ffs(cc, user_n)
+selu_cd = sel_user_ffs(cd, user_n)
 
-user_select41 = sentaku(ru,user_n)
-user_select42 = sentaku(rd,user_n)
-user_select43 = sentaku(rl,user_n)
-user_select44 = sentaku(rr,user_n)
+selu_da = sel_user_ffs(da, user_n)
+selu_db = sel_user_ffs(db, user_n)
+selu_dc = sel_user_ffs(dc, user_n)
+selu_dd = sel_user_ffs(dd, user_n)
+
+'''
+さてどうしようか
+インスタンス変数を使うか，普通に関数の戻り値を使うか
+'''
+
+# 実験用にデータを訓練データ，検証データ，テストデータにわける
+# from exp_module import data_split as ds
+# f11 = ds.DataSplitExpt(aa, selu_aa, user_n)
 
 def data_split(st, user_select):
 
@@ -192,7 +91,6 @@ def data_split(st, user_select):
 
         X, Y = X_Y(user_select)
 
-        from sklearn.model_selection import train_test_split
         def tt(X, Y):
             X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=0, shuffle=True)
             return X_train, X_test, Y_train, Y_test
@@ -242,8 +140,6 @@ def data_split(st, user_select):
             def ss(X_train, X_test,X_test1,X_test2):
                 # 標準化するよ
                 # 二次元配列で行う場合　axis = 0 で列ごとの処理が行われる→これがデフォルト
-                from sklearn import preprocessing
-                from sklearn.preprocessing import StandardScaler
                 ss = preprocessing.StandardScaler().fit(X_train)
                 # ss.fit(X_train)
                 # モデルを保存する
@@ -258,8 +154,6 @@ def data_split(st, user_select):
 
             def mm(X_train, X_test,X_test1,X_test2):
                 # 正規化するよ
-                from sklearn import preprocessing
-                from sklearn.preprocessing import MinMaxScaler
                 mm = preprocessing.MinMaxScaler().fit(X_train)
                 # mm.fit(X_train)
                 # モデルを保存する
@@ -274,8 +168,6 @@ def data_split(st, user_select):
 
             def rs(X_train, X_test,X_test1,X_test2):
                 # 外れ値に強いやつ
-                from sklearn import preprocessing # このなかに処理がまとめて入ってるらしい
-                from sklearn.preprocessing import RobustScaler
                 rs = preprocessing.RobustScaler(quantile_range=(25., 75.)).fit(X_train)
                 # rs.fit(X_train)
                 # モデルを保存する
@@ -339,42 +231,41 @@ def data_split(st, user_select):
         return 0, 0, 0, 0, 0, 0,0, 0,0, 0,0, 0, 0, 0,0,0,0, 0, 0, 0, 0,0,0
         pass
 
+print('\n-----------------------------------------------------------------\na + a\n-----------------------------------------------------------------')
+X11_train_ori, X11_test_ori, X11_test1_ori, X11_test2_ori,X11_train_ss, X11_test_ss,X11_test1_ss, X11_test2_ss,X11_train_mm, X11_test_mm,X11_test1_mm, X11_test2_mm, X11_train_rs, X11_test_rs,X11_test1_rs,X11_test2_rs,Y11_train, Y11_test, y11_train, y11_test, X_train_uu, Y11_test1, Y11_test2 = data_split(aa, selu_aa)
+print('\n-----------------------------------------------------------------\na + b\n-----------------------------------------------------------------')
+X12_train_ori, X12_test_ori, X12_test1_ori, X12_test2_ori,X12_train_ss, X12_test_ss,X12_test1_ss, X12_test2_ss,X12_train_mm, X12_test_mm,X12_test1_mm, X12_test2_mm, X12_train_rs, X12_test_rs,X12_test1_rs,X12_test2_rs,Y12_train, Y12_test, y12_train, y12_test, X_train_ud, Y12_test1, Y12_test2 = data_split(ab, selu_ab)
+print('\n-----------------------------------------------------------------\na + c\n-----------------------------------------------------------------')
+X13_train_ori, X13_test_ori, X13_test1_ori, X13_test2_ori,X13_train_ss, X13_test_ss,X13_test1_ss, X13_test2_ss,X13_train_mm, X13_test_mm,X13_test1_mm, X13_test2_mm, X13_train_rs, X13_test_rs,X13_test1_rs,X13_test2_rs,Y13_train, Y13_test, y13_train, y13_test, X_train_ul, Y13_test1, Y13_test2 = data_split(ac, selu_ac)
+print('\n-----------------------------------------------------------------\na + d\n-----------------------------------------------------------------')
+X14_train_ori, X14_test_ori, X14_test1_ori, X14_test2_ori,X14_train_ss, X14_test_ss,X14_test1_ss, X14_test2_ss,X14_train_mm, X14_test_mm,X14_test1_mm, X14_test2_mm, X14_train_rs, X14_test_rs,X14_test1_rs,X14_test2_rs,Y14_train, Y14_test, y14_train, y14_test,X_train_ur, Y14_test1, Y14_test2 = data_split(ad, selu_ad)
 
-print('\n-----------------------------------------------------------------\nup + up\n-----------------------------------------------------------------')
-X11_train_ori, X11_test_ori, X11_test1_ori, X11_test2_ori,X11_train_ss, X11_test_ss,X11_test1_ss, X11_test2_ss,X11_train_mm, X11_test_mm,X11_test1_mm, X11_test2_mm, X11_train_rs, X11_test_rs,X11_test1_rs,X11_test2_rs,Y11_train, Y11_test, y11_train, y11_test, X_train_uu, Y11_test1, Y11_test2 = data_split(uu, user_select11)
-print('\n-----------------------------------------------------------------\nup + down\n-----------------------------------------------------------------')
-X12_train_ori, X12_test_ori, X12_test1_ori, X12_test2_ori,X12_train_ss, X12_test_ss,X12_test1_ss, X12_test2_ss,X12_train_mm, X12_test_mm,X12_test1_mm, X12_test2_mm, X12_train_rs, X12_test_rs,X12_test1_rs,X12_test2_rs,Y12_train, Y12_test, y12_train, y12_test, X_train_ud, Y12_test1, Y12_test2 = data_split(ud, user_select12)
-print('\n-----------------------------------------------------------------\nup + left\n-----------------------------------------------------------------')
-X13_train_ori, X13_test_ori, X13_test1_ori, X13_test2_ori,X13_train_ss, X13_test_ss,X13_test1_ss, X13_test2_ss,X13_train_mm, X13_test_mm,X13_test1_mm, X13_test2_mm, X13_train_rs, X13_test_rs,X13_test1_rs,X13_test2_rs,Y13_train, Y13_test, y13_train, y13_test, X_train_ul, Y13_test1, Y13_test2 = data_split(ul, user_select13)
-print('\n-----------------------------------------------------------------\nup + right\n-----------------------------------------------------------------')
-X14_train_ori, X14_test_ori, X14_test1_ori, X14_test2_ori,X14_train_ss, X14_test_ss,X14_test1_ss, X14_test2_ss,X14_train_mm, X14_test_mm,X14_test1_mm, X14_test2_mm, X14_train_rs, X14_test_rs,X14_test1_rs,X14_test2_rs,Y14_train, Y14_test, y14_train, y14_test,X_train_ur, Y14_test1, Y14_test2 = data_split(ur, user_select14)
+print('\n-----------------------------------------------------------------\nb + a\n-----------------------------------------------------------------')
+X21_train_ori, X21_test_ori, X21_test1_ori, X21_test2_ori,X21_train_ss, X21_test_ss,X21_test1_ss, X21_test2_ss,X21_train_mm, X21_test_mm,X21_test1_mm, X21_test2_mm, X21_train_rs, X21_test_rs,X21_test1_rs,X21_test2_rs,Y21_train, Y21_test, y21_train, y21_test, X_train_du, Y21_test1, Y21_test2 = data_split(ba, selu_ba)
+print('\n-----------------------------------------------------------------\nb + b\n-----------------------------------------------------------------')
+X22_train_ori, X22_test_ori, X22_test1_ori, X22_test2_ori,X22_train_ss, X22_test_ss,X22_test1_ss, X22_test2_ss,X22_train_mm, X22_test_mm,X22_test1_mm, X22_test2_mm, X22_train_rs, X22_test_rs,X22_test1_rs,X22_test2_rs,Y22_train, Y22_test, y22_train, y22_test, X_train_dd, Y22_test1, Y22_test2 = data_split(bb, selu_bb)
+print('\n-----------------------------------------------------------------\nb + c\n-----------------------------------------------------------------')
+X23_train_ori, X23_test_ori, X23_test1_ori, X23_test2_ori,X23_train_ss, X23_test_ss,X23_test1_ss, X23_test2_ss,X23_train_mm, X23_test_mm,X23_test1_mm, X23_test2_mm, X23_train_rs, X23_test_rs,X23_test1_rs,X23_test2_rs,Y23_train, Y23_test, y23_train, y23_test, X_train_dl, Y23_test1, Y23_test2 = data_split(bc, selu_bc)
+print('\n-----------------------------------------------------------------\nb + d\n-----------------------------------------------------------------')
+X24_train_ori, X24_test_ori, X24_test1_ori, X24_test2_ori,X24_train_ss, X24_test_ss,X24_test1_ss, X24_test2_ss,X24_train_mm, X24_test_mm,X24_test1_mm, X24_test2_mm, X24_train_rs, X24_test_rs,X24_test1_rs,X24_test2_rs,Y24_train, Y24_test, y24_train, y24_test,X_train_dr, Y24_test1, Y24_test2 = data_split(bd, selu_bd)
 
-print('\n-----------------------------------------------------------------\ndown + up\n-----------------------------------------------------------------')
-X21_train_ori, X21_test_ori, X21_test1_ori, X21_test2_ori,X21_train_ss, X21_test_ss,X21_test1_ss, X21_test2_ss,X21_train_mm, X21_test_mm,X21_test1_mm, X21_test2_mm, X21_train_rs, X21_test_rs,X21_test1_rs,X21_test2_rs,Y21_train, Y21_test, y21_train, y21_test, X_train_du, Y21_test1, Y21_test2 = data_split(du, user_select21)
-print('\n-----------------------------------------------------------------\ndown + down\n-----------------------------------------------------------------')
-X22_train_ori, X22_test_ori, X22_test1_ori, X22_test2_ori,X22_train_ss, X22_test_ss,X22_test1_ss, X22_test2_ss,X22_train_mm, X22_test_mm,X22_test1_mm, X22_test2_mm, X22_train_rs, X22_test_rs,X22_test1_rs,X22_test2_rs,Y22_train, Y22_test, y22_train, y22_test, X_train_dd, Y22_test1, Y22_test2 = data_split(dd, user_select22)
-print('\n-----------------------------------------------------------------\ndown + left\n-----------------------------------------------------------------')
-X23_train_ori, X23_test_ori, X23_test1_ori, X23_test2_ori,X23_train_ss, X23_test_ss,X23_test1_ss, X23_test2_ss,X23_train_mm, X23_test_mm,X23_test1_mm, X23_test2_mm, X23_train_rs, X23_test_rs,X23_test1_rs,X23_test2_rs,Y23_train, Y23_test, y23_train, y23_test, X_train_dl, Y23_test1, Y23_test2 = data_split(dl, user_select23)
-print('\n-----------------------------------------------------------------\ndown + right\n-----------------------------------------------------------------')
-X24_train_ori, X24_test_ori, X24_test1_ori, X24_test2_ori,X24_train_ss, X24_test_ss,X24_test1_ss, X24_test2_ss,X24_train_mm, X24_test_mm,X24_test1_mm, X24_test2_mm, X24_train_rs, X24_test_rs,X24_test1_rs,X24_test2_rs,Y24_train, Y24_test, y24_train, y24_test,X_train_dr, Y24_test1, Y24_test2 = data_split(dr, user_select24)
+print('\n-----------------------------------------------------------------\nc + a\n-----------------------------------------------------------------')
+X31_train_ori, X31_test_ori, X31_test1_ori, X31_test2_ori,X31_train_ss, X31_test_ss,X31_test1_ss, X31_test2_ss,X31_train_mm, X31_test_mm,X31_test1_mm, X31_test2_mm, X31_train_rs, X31_test_rs,X31_test1_rs,X31_test2_rs,Y31_train, Y31_test, y31_train, y31_test, X_train_lu, Y31_test1, Y31_test2 = data_split(ca, selu_ca)
+print('\n-----------------------------------------------------------------\nc + b\n-----------------------------------------------------------------')
+X32_train_ori, X32_test_ori, X32_test1_ori, X32_test2_ori,X32_train_ss, X32_test_ss,X32_test1_ss, X32_test2_ss,X32_train_mm, X32_test_mm,X32_test1_mm, X32_test2_mm, X32_train_rs, X32_test_rs,X32_test1_rs,X32_test2_rs,Y32_train, Y32_test, y32_train, y32_test, X_train_ld, Y32_test1, Y32_test2 = data_split(cb, selu_cb)
+print('\n-----------------------------------------------------------------\nc + c\n-----------------------------------------------------------------')
+X33_train_ori, X33_test_ori, X33_test1_ori, X33_test2_ori,X33_train_ss, X33_test_ss,X33_test1_ss, X33_test2_ss,X33_train_mm, X33_test_mm,X33_test1_mm, X33_test2_mm, X33_train_rs, X33_test_rs,X33_test1_rs,X33_test2_rs,Y33_train, Y33_test, y33_train, y33_test, X_train_ll, Y33_test1, Y33_test2 = data_split(cc, selu_cc)
+print('\n-----------------------------------------------------------------\nc + d\n-----------------------------------------------------------------')
+X34_train_ori, X34_test_ori, X34_test1_ori, X34_test2_ori,X34_train_ss, X34_test_ss,X34_test1_ss, X34_test2_ss,X34_train_mm, X34_test_mm,X34_test1_mm, X34_test2_mm, X34_train_rs, X34_test_rs,X34_test1_rs,X34_test2_rs,Y34_train, Y34_test, y34_train, y34_test,X_train_lr, Y34_test1, Y34_test2 = data_split(cd, selu_cd)
 
-print('\n-----------------------------------------------------------------\nleft + up\n-----------------------------------------------------------------')
-X31_train_ori, X31_test_ori, X31_test1_ori, X31_test2_ori,X31_train_ss, X31_test_ss,X31_test1_ss, X31_test2_ss,X31_train_mm, X31_test_mm,X31_test1_mm, X31_test2_mm, X31_train_rs, X31_test_rs,X31_test1_rs,X31_test2_rs,Y31_train, Y31_test, y31_train, y31_test, X_train_lu, Y31_test1, Y31_test2 = data_split(lu, user_select31)
-print('\n-----------------------------------------------------------------\nleft + down\n-----------------------------------------------------------------')
-X32_train_ori, X32_test_ori, X32_test1_ori, X32_test2_ori,X32_train_ss, X32_test_ss,X32_test1_ss, X32_test2_ss,X32_train_mm, X32_test_mm,X32_test1_mm, X32_test2_mm, X32_train_rs, X32_test_rs,X32_test1_rs,X32_test2_rs,Y32_train, Y32_test, y32_train, y32_test, X_train_ld, Y32_test1, Y32_test2 = data_split(ld, user_select32)
-print('\n-----------------------------------------------------------------\nleft + left\n-----------------------------------------------------------------')
-X33_train_ori, X33_test_ori, X33_test1_ori, X33_test2_ori,X33_train_ss, X33_test_ss,X33_test1_ss, X33_test2_ss,X33_train_mm, X33_test_mm,X33_test1_mm, X33_test2_mm, X33_train_rs, X33_test_rs,X33_test1_rs,X33_test2_rs,Y33_train, Y33_test, y33_train, y33_test, X_train_ll, Y33_test1, Y33_test2 = data_split(ll, user_select33)
-print('\n-----------------------------------------------------------------\nleft + right\n-----------------------------------------------------------------')
-X34_train_ori, X34_test_ori, X34_test1_ori, X34_test2_ori,X34_train_ss, X34_test_ss,X34_test1_ss, X34_test2_ss,X34_train_mm, X34_test_mm,X34_test1_mm, X34_test2_mm, X34_train_rs, X34_test_rs,X34_test1_rs,X34_test2_rs,Y34_train, Y34_test, y34_train, y34_test,X_train_lr, Y34_test1, Y34_test2 = data_split(lr, user_select34)
-
-print('\n-----------------------------------------------------------------\nright + up\n-----------------------------------------------------------------')
-X41_train_ori, X41_test_ori, X41_test1_ori, X41_test2_ori,X41_train_ss, X41_test_ss,X41_test1_ss, X41_test2_ss,X41_train_mm, X41_test_mm,X41_test1_mm, X41_test2_mm, X41_train_rs, X41_test_rs,X41_test1_rs,X41_test2_rs,Y41_train, Y41_test, y41_train, y41_test, X_train_ru, Y41_test1, Y41_test2 = data_split(ru, user_select41)
-print('\n-----------------------------------------------------------------\nright + down\n-----------------------------------------------------------------')
-X42_train_ori, X42_test_ori, X42_test1_ori, X42_test2_ori,X42_train_ss, X42_test_ss,X42_test1_ss, X42_test2_ss,X42_train_mm, X42_test_mm,X42_test1_mm, X42_test2_mm, X42_train_rs, X42_test_rs,X42_test1_rs,X42_test2_rs,Y42_train, Y42_test, y42_train, y42_test, X_train_rd, Y42_test1, Y42_test2 = data_split(rd, user_select42)
-print('\n-----------------------------------------------------------------\nright + left\n-----------------------------------------------------------------')
-X43_train_ori, X43_test_ori, X43_test1_ori, X43_test2_ori,X43_train_ss, X43_test_ss,X43_test1_ss, X43_test2_ss,X43_train_mm, X43_test_mm,X43_test1_mm, X43_test2_mm, X43_train_rs, X43_test_rs,X43_test1_rs,X43_test2_rs,Y43_train, Y43_test, y43_train, y43_test, X_train_rl, Y43_test1, Y43_test2 = data_split(rl, user_select43)
-print('\n-----------------------------------------------------------------\nright + right\n-----------------------------------------------------------------')
-X44_train_ori, X44_test_ori, X44_test1_ori, X44_test2_ori,X44_train_ss, X44_test_ss,X44_test1_ss, X44_test2_ss,X44_train_mm, X44_test_mm,X44_test1_mm, X44_test2_mm, X44_train_rs, X44_test_rs,X44_test1_rs,X44_test2_rs,Y44_train, Y44_test, y44_train, y44_test,X_train_rr, Y44_test1, Y44_test2 = data_split(rr, user_select44)
+print('\n-----------------------------------------------------------------\nd + a\n-----------------------------------------------------------------')
+X41_train_ori, X41_test_ori, X41_test1_ori, X41_test2_ori,X41_train_ss, X41_test_ss,X41_test1_ss, X41_test2_ss,X41_train_mm, X41_test_mm,X41_test1_mm, X41_test2_mm, X41_train_rs, X41_test_rs,X41_test1_rs,X41_test2_rs,Y41_train, Y41_test, y41_train, y41_test, X_train_ru, Y41_test1, Y41_test2 = data_split(da, selu_da)
+print('\n-----------------------------------------------------------------\nd + b\n-----------------------------------------------------------------')
+X42_train_ori, X42_test_ori, X42_test1_ori, X42_test2_ori,X42_train_ss, X42_test_ss,X42_test1_ss, X42_test2_ss,X42_train_mm, X42_test_mm,X42_test1_mm, X42_test2_mm, X42_train_rs, X42_test_rs,X42_test1_rs,X42_test2_rs,Y42_train, Y42_test, y42_train, y42_test, X_train_rd, Y42_test1, Y42_test2 = data_split(db, selu_db)
+print('\n-----------------------------------------------------------------\nd + c\n-----------------------------------------------------------------')
+X43_train_ori, X43_test_ori, X43_test1_ori, X43_test2_ori,X43_train_ss, X43_test_ss,X43_test1_ss, X43_test2_ss,X43_train_mm, X43_test_mm,X43_test1_mm, X43_test2_mm, X43_train_rs, X43_test_rs,X43_test1_rs,X43_test2_rs,Y43_train, Y43_test, y43_train, y43_test, X_train_rl, Y43_test1, Y43_test2 = data_split(dc, selu_dc)
+print('\n-----------------------------------------------------------------\nd + d\n-----------------------------------------------------------------')
+X44_train_ori, X44_test_ori, X44_test1_ori, X44_test2_ori,X44_train_ss, X44_test_ss,X44_test1_ss, X44_test2_ss,X44_train_mm, X44_test_mm,X44_test1_mm, X44_test2_mm, X44_train_rs, X44_test_rs,X44_test1_rs,X44_test2_rs,Y44_train, Y44_test, y44_train, y44_test,X_train_rr, Y44_test1, Y44_test2 = data_split(dd, selu_dd)
 
 def result(normal_result, anomaly_result, Y_true, prediction, y_score):
     print("\n正常データのスコア\n", normal_result)
@@ -416,52 +307,22 @@ def result(normal_result, anomaly_result, Y_true, prediction, y_score):
 
     plt.show()
 
-
-# from tqdm import tqdm_notebook as tqdm
-from tqdm import tqdm
-import time
-
-from multiprocessing import cpu_count
-from sklearn.externals import joblib
-
 from sklearn.model_selection import train_test_split
 
-# １クラス分類器
-from sklearn.model_selection import cross_val_score, KFold, StratifiedKFold, GridSearchCV
-import sklearn
-from sklearn import svm
-from sklearn.svm import OneClassSVM
-from sklearn import preprocessing
-from sklearn.neighbors import KernelDensity, LocalOutlierFactor
-from sklearn.mixture import GaussianMixture
-from sklearn.ensemble import IsolationForest
-from sklearn.covariance import EllipticEnvelope
-
 # 評価
-from sklearn.metrics import classification_report
-from sklearn.metrics import precision_score
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import f1_score
 from sklearn import metrics
+from sklearn.metrics import f1_score
 from sklearn.metrics import roc_curve
+from sklearn.metrics import recall_score
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import precision_score
 from sklearn.metrics import confusion_matrix
-from multiprocessing import cpu_count
-from sklearn.model_selection import cross_val_predict
-from sklearn.model_selection import cross_val_score
-from sklearn.metrics import matthews_corrcoef
+from sklearn.metrics import classification_report
 
-#スケーリング
-from sklearn import preprocessing
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import RobustScaler
-
-from sklearn.feature_selection import RFE
 from sklearn.decomposition import PCA
 import mglearn
-import japanize_matplotlib
+# import japanize_matplotlib
 from mpl_toolkits.mplot3d import Axes3D
 
 
@@ -664,19 +525,19 @@ class Experiment3():
             X_val_ano, Y_val_ano = X_Y(user_0)
 
             # if scale_n == 0:
-            #     result = X_val_ano
+            #     result_old = X_val_ano
             # elif scale_n == 1:
             #     # 保存したモデルをロードする
             #     loaded_model = pickle.load(open('finalized_ss.sav', 'rb'))
-            #     result = loaded_model.fit(X_val_ano)
+            #     result_old = loaded_model.fit(X_val_ano)
             # elif scale_n == 2:
             #     # 保存したモデルをロードする
             #     loaded_model = pickle.load(open('finalized_mm.sav', 'rb'))
-            #     result = loaded_model.fit(X_val_ano)
+            #     result_old = loaded_model.fit(X_val_ano)
             # else:
             #     # 保存したモデルをロードする
             #     loaded_model = pickle.load(open('finalized_rs.sav', 'rb'))
-            #     result = loaded_model.fit(X_val_ano)
+            #     result_old = loaded_model.fit(X_val_ano)
 
             columns = ['stroke_inter', 'stroke_duration', 'start_x', 'start_y', 'stop_x',
            'stop_y', 'direct_ete_distance', 'mean_result_leng', 'direct_ete_line',
@@ -1446,7 +1307,7 @@ class Experiment3():
 #             y_score = new_clf.decision_function(test)
 
 #             評価
-#             result(normal_result, anomaly_result, Y_true, prediction, y_score)
+#             result_old(normal_result, anomaly_result, Y_true, prediction, y_score)
 #             print('\n============================================================\n')
 
         k_range = np.linspace(0.01, 1.0, 1000)
