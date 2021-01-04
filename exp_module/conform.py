@@ -1,5 +1,6 @@
 from pandas import DataFrame
 
+
 # sd == 各multi_flagのdata
 def conf_sel_flag_qty(sd):
     user = sd.groupby("user")
