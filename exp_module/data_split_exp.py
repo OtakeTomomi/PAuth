@@ -1,4 +1,3 @@
-
 import pandas as pd
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
@@ -9,18 +8,18 @@ def X_Y(user_select):
     Y = user_select.user
     return X, Y
 
-def data_split(st, user_select, user_n):
 
-    '''
+def data_split(st, user_select, user_n):
+    """
     :param st: split_dataのことであり，multi_flagに基づいたデータの集合
     :param user_select: stの中でも選択されたユーザのみのデータ
     関係としては，st ∋　user_select
     :param user_n: 選択されたユーザ
     :return:
-    '''
+    """
 
-    # データ数が30以上あるか
-    if user_select['user'].count() >= 30:
+    # データ数が50以上あるか
+    if user_select['user'].count() >= 50:
 
         # 説明変数Xと目的変数Yに分割
         X, Y = X_Y(user_select)
@@ -33,17 +32,17 @@ def data_split(st, user_select, user_n):
 
         # 偽物(外れ値)のデータの選択
         def outlier(st, user_n, Y_test_t_size):
-            '''
+            """
             :param st:
             :param user_n:
             :param Y_test_t_size: テストデータの個数
             :return: st_f:user_n以外のデータ，st_f_us:st_fの中からtestデータと同じ数だけ選択した偽物のデータ
-            '''
-            #user_n以外のuserを抽出
+            """
+            # user_n以外のuserを抽出
             st_f = st[st['user'] != user_n]
-            #sstをシャッフル
+            # sstをシャッフル
             st_f_shuffle = st_f.sample(frac=1, random_state=0).reset_index(drop=True)
-            #testデータと同じ数の外れ値を選択
+            # testデータと同じ数の外れ値を選択
             st_f_select_outlier = st_f_shuffle.sample(n = Y_test_t_size, random_state=0)
             return st_f, st_f_select_outlier
         st_f, st_f_us = outlier(st, user_n, Y_test_t_size)
@@ -53,7 +52,7 @@ def data_split(st, user_select, user_n):
 
         # testデータと外れ値データの結合
         st_f_us_number = list(st_f_us['user'])
-        print('\n外れ値として扱うuserのnumber\n', st_f_us_number)
+        # print('\n外れ値として扱うuserのnumber\n', st_f_us_number)
 
         # userをすべて０に変更
         user_n_change = st_f_us.copy()
@@ -80,18 +79,19 @@ def data_split(st, user_select, user_n):
             target = pd.DataFrame(g.size().sort_values(ascending=False))
             target_index = target.index.values
             return target_index
-        train_target = Y_target(Y_test)
+        train_target = Y_target(Y_train)
         test_target = Y_target(Y_test)
 
         # matome
         # conform.conf_matome(X, Y, X_train, Y_train, X_test, Y_test, X_test_t, X_test_f, Y_test_t, Y_test_f, train_target, test_target)
 
-        return X_train_ss, X_test_ss, X_test_t_ss, X_test_f_ss, Y_train, Y_test, train_target, test_target, X_train, Y_test_t, Y_test_f
+        return X_train_ss, X_test_ss, X_test_t_ss, X_test_f_ss, Y_train, Y_test, train_target, test_target, X_train, Y_test_t, Y_test_f, st_f_us_number
 
     else:
         print('None')
-        return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         pass
+
 
 if __name__ == "__main__":
     print('data_split_exp module')

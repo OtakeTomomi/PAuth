@@ -1,13 +1,11 @@
-import numpy as np
-import pandas as pd
 from pandas import DataFrame
 
 # sd == 各multi_flagのdata
 def conf_sel_flag_qty(sd):
     user = sd.groupby("user")
-    index = DataFrame(user.size().sort_values(ascending = False))
+    index = DataFrame(user.size().sort_values(ascending=False))
     list_index = index.index.values
-    print('選択したflagに含まれるメンバー(データの多い順)\n',list_index)
+    print('選択したflagに含まれるメンバー(データの多い順)\n', list_index)
     return list_index
 
 def conf_data(sdf, sdf_f, sdf_f_sel, ls_sdf_f):
@@ -16,7 +14,7 @@ def conf_data(sdf, sdf_f, sdf_f_sel, ls_sdf_f):
     print('all - select_data:', sdf_f['user'].count())
     print('select_data:', sdf['user'].count() - sdf_f['user'].count())
     print('select_hazure_data:', sdf_f_sel['user'].count())
-    print('\n外れ値として扱うuser\n',ls_sdf_f)
+    print('\n外れ値として扱うuser\n', ls_sdf_f)
 
 def conf_matome(X, Y, X_train, Y_train, X_test, Y_test, X_test_t, X_test_f, Y_test_t, Y_test_f, train_target, test_target):
     print('\nX_base:', X.shape)
@@ -40,7 +38,7 @@ def conf_outlier(st, st_f, st_f_us):
 
 
 if __name__ == "__main__":
-
+    """
     # 各multi_flagに含まれる各ユーザのデータ数について確認したい場合
     list_index11= conf_sel_flag_qty(aa)
     list_index12= conf_sel_flag_qty(ab)
@@ -64,3 +62,4 @@ if __name__ == "__main__":
     conf_data(sdf, sdf_f, sdf_f_sel, ls_sdf_f)
 
     conf_matome(X, Y, X_train, Y_train, X_test, Y_test, X_test_t, X_test_f, Y_test_t, Y_test_f, y_train, y_test)
+    """
