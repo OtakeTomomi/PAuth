@@ -17,6 +17,7 @@ def read_frank(combination_flag):
         # df_drop_t = df_ori_t.drop({'Unnamed: 0', 'flag', 'user2', 'doc2', 'flag2', 'user_ave', 'doc_ave', 'flag_ave'},
         #                           axis=1)
 
+        # print(len(df_ori_t.columns))
         # 'finger_orien', 'cd_finger_orien', 'phone_orien'を削除する場合91
         df_drop_t = df_ori_t.drop({'Unnamed: 0', 'flag', 'finger_orien', 'cd_finger_orien', 'phone_orien',
                                    'user2', 'doc2', 'flag2', 'finger_orien2', 'cd_finger_orien2', 'phone_orien2',
