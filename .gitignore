@@ -1,1 +1,13 @@
 venv/
+
+# bin フォルダは要らない
+bin/*
+
+
+01_data/*
+02_features/*
+
+*.csv
+
+# gitignoreが仕事していない
+#解決策→https://qiita.com/fuwamaki/items/3ed021163e50beab7154
