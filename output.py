@@ -64,12 +64,13 @@ def main(PATH, n):
     re_min_test = re_min_test.set_index(['scenario', 'flag', 'performance', 'model'])
     re_std_test = re_std_test.set_index(['scenario', 'flag', 'performance', 'model'])
 
-    os.makedirs(f'{PATH}plot_result', exist_ok=True)
+    os.makedirs(f'{PATH}plot_result2', exist_ok=True)
 
     def plot_re(re_mean_m, re_max_m, re_min_m, re_std_m, p):
         # multi_flag[11,13,22,24,31,33,42,44]
         # これはあとで一括管理
         scenario_list = ['first', 'latter', 'all', 'all_test_shinario2']
+        sessions = {'first': 'intra', 'latter': 'inter', 'all': 'combined', 'all_test_shinario2': 'combined2'}
         # s = 'first'
         # k = 3
         m = ['_', 'up', 'right', 'down', 'left']
@@ -109,30 +110,41 @@ def main(PATH, n):
                 y_min_far = list(re_min_m['FAR'].xs([s, k, p], level=['scenario', 'flag', 'performance']))
                 y_min_frr = list(re_min_m['FRR'].xs([s, k, p], level=['scenario', 'flag', 'performance']))
 
+                # y軸_std
+                y_std_ber = list(re_std_m['BER'].xs([s, k, p], level=['scenario', 'flag', 'performance']))
+                y_std_far = list(re_std_m['FAR'].xs([s, k, p], level=['scenario', 'flag', 'performance']))
+                y_std_frr = list(re_std_m['FRR'].xs([s, k, p], level=['scenario', 'flag', 'performance']))
+                y_std_acc = list(re_std_m['Accuracy'].xs([s, k, p], level=['scenario', 'flag', 'performance']))
+
                 # タイトル
-                plt.title(f'scenario: {s}, flag: {m[k//10]}+{m[k%10]}')
+                plt.title(f'scenario: {sessions[s]}, flag: {m[k//10]}+{m[k%10]}')
 
                 x = np.arange(len(labels))
                 width = 0.2
 
+                error_bar_set = dict(lw=1, capthick=1, capsize=2)
+
                 # 棒グラフ(mean)
-                plt.bar(x, y_mean_ber, width=width, align='center', label='BER', alpha=0.7)
-                plt.bar(x+width, y_mean_far, width=width, align='center', label='FAR', alpha=0.7)
-                plt.bar(x+width*2, y_mean_frr, width=width, align='center', label='FRR', alpha=0.7)
+                plt.bar(x, y_mean_ber, width=width, align='center', label='BER', alpha=0.7,
+                        yerr=y_std_ber, error_kw=error_bar_set, color="white", edgecolor='black')
+                plt.bar(x+width, y_mean_far, width=width, align='center', label='FAR', alpha=0.7, hatch="///",
+                        yerr=y_std_far, error_kw=error_bar_set, color="white", edgecolor='black')
+                plt.bar(x+width*2, y_mean_frr, width=width, align='center', label='FRR', alpha=0.7, hatch="-"*3,
+                        yerr=y_std_frr, error_kw=error_bar_set, color="white", edgecolor='black')
 
-                # 点(max)
-                plt.scatter(x, y_max_ber, marker="$-$")
-                plt.scatter(x+width, y_max_far, marker="$-$")
-                plt.scatter(x+width*2, y_max_frr, marker="$-$")
-
-                # 点(min)
-                plt.scatter(x, y_min_ber, marker="$-$")
-                plt.scatter(x+width, y_min_far, marker="$-$")
-                plt.scatter(x+width*2, y_min_frr, marker="$-$")
-
-                plt.vlines(x, ymin=y_min_ber, ymax=y_max_ber, alpha=0.5)
-                plt.vlines(x+width, ymin=y_min_far, ymax=y_max_far, alpha=0.5)
-                plt.vlines(x+width*2, ymin=y_min_frr, ymax=y_max_frr, alpha=0.5)
+                # # 点(max)
+                # plt.scatter(x, y_max_ber, marker="$-$")
+                # plt.scatter(x+width, y_max_far, marker="$-$")
+                # plt.scatter(x+width*2, y_max_frr, marker="$-$")
+                #
+                # # 点(min)
+                # plt.scatter(x, y_min_ber, marker="$-$")
+                # plt.scatter(x+width, y_min_far, marker="$-$")
+                # plt.scatter(x+width*2, y_min_frr, marker="$-$")
+                #
+                # plt.vlines(x, ymin=y_min_ber, ymax=y_max_ber, alpha=0.5)
+                # plt.vlines(x+width, ymin=y_min_far, ymax=y_max_far, alpha=0.5)
+                # plt.vlines(x+width*2, ymin=y_min_frr, ymax=y_max_frr, alpha=0.5)
 
                 # x軸のメモリをラベルで置換
                 plt.xticks(x + width/2, labels)
@@ -141,7 +153,7 @@ def main(PATH, n):
                 plt.yticks(np.arange(0.0, 1.1, 0.1))
 
                 # 凡例
-                plt.legend(loc=2)
+                plt.legend(loc='best')
 
                 mean = np.array([y_mean_acc, y_mean_ber, y_mean_far, y_mean_frr])
                 # print(mean)
@@ -160,20 +172,20 @@ def main(PATH, n):
                     name = 'OneclassOne'
                 else:
                     name = 'OneclassTwo'
-                plt.savefig(f'{PATH}plot_result/{name}_{p}_{s}_{k}.png')
+                plt.savefig(f'{PATH}plot_result2/{name}_{p}_{sessions[s]}_{k}.png')
 
                 # 描画
                 # plt.show()
                 plt.close()
 
-                img = Image.open(f'{PATH}plot_result/{name}_{p}_{s}_{k}.png')
+                img = Image.open(f'{PATH}plot_result2/{name}_{p}_{sessions[s]}_{k}.png')
                 # (left, upper, right, bottom)
                 # print(img.size)
                 box = (0, 100, 600, 770)
                 new_img = img.crop(box)
                 # 画像表示
                 # new_img.show()
-                new_img.save(f'{PATH}plot_result/{name}_{p}_{s}_{k}.png')
+                new_img.save(f'{PATH}plot_result2/{name}_{p}_{sessions[s]}_{k}.png')
 
     plot_re(re_mean_val, re_max_val, re_min_val, re_std_val, p='val')
     plot_re(re_mean_test, re_max_test, re_min_test, re_std_test, p='test')
@@ -181,7 +193,8 @@ def main(PATH, n):
 
 if __name__ == '__main__':
     # print("結果")
-    PATH = 'result/result2020_12/matome20201211comb100/'
+    # PATH = 'result2021/matome/'
+    PATH = 'result2021/matome_comb/'
     # combのときはn=16にする
     main(PATH, n=16)
 
