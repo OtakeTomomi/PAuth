@@ -8,12 +8,14 @@
 02_features/featureString.txt
 02_features/readme_features.txt
 
+/10_feature_selection/
+
 /plot_pca/
 /result/
 /result2021part1/
 /result_2020_7/
 
-/hoge/
+/old/*
 
 *.csv
 
