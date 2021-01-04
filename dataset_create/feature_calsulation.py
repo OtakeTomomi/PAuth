@@ -56,6 +56,7 @@ for user_n in range(1, 42, 1):
         # dddp = df_drop_doc_phone
         dddp, dddp_del_lastrow, dddp_del_firstrow = load_frank_data(user_n, document, doc_list)
 
+
         # dddp_del_firstrowのColumnsを書き換え
         dddp_del_firstrow.columns = ['user2', 'doc2', 'stroke_inter2', 'stroke_duration2', 'start_x2', 'start_y2', 'stop_x2',
                                      'stop_y2', 'direct_ete_distance2', 'mean_result_leng2', 'flag2',
