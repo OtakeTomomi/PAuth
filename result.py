@@ -5,11 +5,13 @@ import pprint
 
 
 # Comment：変更必要あり
-PATH = 'result/result2020_12'
-PATH2 = 'result/result2020_12/matome20201211comb100'
-filename_val = 'result_2020-12-11_val_combination_100'
-filename_test = 'result_2020-12-11_test_combination_100'
-
+PATH = 'result2021'
+# PATH2 = 'result2021/matome'
+PATH2 = 'result2021/matome_comb'
+# filename_val = 'result_2021-01-03_val'
+# filename_test = 'result_2021-01-03_test'
+filename_val = 'result_2021-01-03_val_comb'
+filename_test = 'result_2021-01-03_test_comb'
 
 # Columnのリスト
 val_columns = ['user', 'flag', 'performance', 'model', 'Accuracy', 'Precision',
@@ -18,6 +20,7 @@ test_columns = ['user', 'flag', 'performance', 'model', 'AUC', 'Accuracy',
                 'BER', 'F1', 'FAR', 'FRR', 'Precision', 'Recall', 'scenario']
 
 session_list = ['first', 'latter', 'all', 'all_test_shinario2']
+# sessions = {'first':'intra', 'latter':'inter', 'all':'combined', 'all_test_shinario2':'combined2'}
 
 model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
 
