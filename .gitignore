@@ -1,11 +1,19 @@
-venv/
+/venv/
 
 # bin フォルダは要らない
-bin/*
+/bin/
 
+/01_data/
+02_features/featMat.csv
+02_features/featureString.txt
+02_features/readme_features.txt
 
-01_data/*
-02_features/*
+/plot_pca/
+/result/
+/result2021part1/
+/result_2020_7/
+
+/hoge/
 
 *.csv
 
