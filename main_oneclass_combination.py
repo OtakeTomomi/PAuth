@@ -74,11 +74,11 @@ def main(df, user_n, session):
         data_item = pd.DataFrame([u_n, text, len(df_flag_user_extract)]).T
         # data_item.to_csv(f'result/info/main_oneclass_combination_df_flag_user_extract_item.csv', mode='a', header=None, index=None)
 
-        df_flag_user_extract2 = timeprocess(df_flag_user_extract)
-        data_item[3] = pd.DataFrame([len(df_flag_user_extract2)])
+        # df_flag_user_extract2 = timeprocess(df_flag_user_extract)
+        # data_item[3] = pd.DataFrame([len(df_flag_user_extract2)])
         # Comment: 1-41人全員分行ったらコメントアウト→2020/11/05済→2021/01/03済
         # data_item.to_csv(f'result2021/main_oc_comb_flag_user_extract_item.csv', mode='a', header=None, index=None)
-        return df_flag_user_extract2
+        return df_flag_user_extract
 
     aa_user_extract = select_user_flag(aa, user_n, 'aa')
     ab_user_extract = select_user_flag(ab, user_n, 'ab')
@@ -181,7 +181,7 @@ def main(df, user_n, session):
                 self.x_train, self.y_train, self.x_test, self.y_test, self.x_test_t, \
                     self.y_test_t, self.x_test_f, self.y_test_f, self.test_f, self.fake_data_except_test_f \
                     = datasplit_session(self.df_flag, self.df_flag_user_extract, self.u_n, self.session_select,
-                                        train_size=50)
+                                        train_size=40)
 
                 # 標準化
                 ss = preprocessing.StandardScaler()
@@ -299,7 +299,7 @@ def main(df, user_n, session):
                 def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
                     # Comment:変更
-                    PATH= 'result2021part1'
+                    PATH= 'result2021'
                     os.makedirs(PATH, exist_ok=True)
                     # Columnの作成
                     users = pd.Series([self.u_n] * 4, name='user')

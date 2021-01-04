@@ -266,7 +266,9 @@ def main(df, user_n, session):
                 # 書き出し
                 def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
-                    os.makedirs('result/result2020_10', exist_ok=True)
+                    # Comment:PATHの設定
+                    PATH = "result2021"
+                    os.makedirs(PATH, exist_ok=True)
                     # Columnの作成
                     users = pd.Series([self.u_n] * 4, name='user')
                     flag = pd.Series([self.flag_n] * 4, name='flag')
@@ -286,7 +288,7 @@ def main(df, user_n, session):
                     all_result = pd.concat([users, flag, performance, model2, result, sessions], axis=1)
                     # 書き出し
                     data_now = datetime.datetime.now().strftime("%Y-%m-%d")
-                    all_result.to_csv(f'result/result2020_10/result_{data_now}_{text}.csv', mode='a', header=False,
+                    all_result.to_csv(f'{PATH}/result_{data_now}_{text}.csv', mode='a', header=False,
                                       index=False)
 
                 # 交差検証の結果の書き出し
