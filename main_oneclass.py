@@ -30,6 +30,8 @@ from expmodule.datasplit_train_test_val import x_y_split
 # 交差検証
 from sklearn.model_selection import KFold
 
+from sklearn.model_selection import train_test_split
+
 # 評価指標
 from sklearn.metrics import f1_score
 from sklearn.metrics import recall_score
@@ -37,6 +39,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 
+from tqdm import tqdm
 
 # warning ignore code
 import warnings
@@ -181,9 +184,9 @@ def main(df, user_n, session):
                 # print(self.x_train.head(5))
 
                 # モデル
-                contamination = 0.01
-                models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=contamination),
-                          IsolationForest(n_estimators=1, contamination=contamination, behaviour='new', random_state=0),
+                contamination = 0.1
+                models = [LocalOutlierFactor(novelty=True, contamination=contamination),
+                          IsolationForest(contamination=contamination, behaviour='new', random_state=0),
                           OneClassSVM(nu=contamination, kernel="rbf"),
                           EllipticEnvelope(contamination=contamination, random_state=0)]
                 scores = {'LocalOutlierFactor': {}, 'IsolationForest': {}, 'OneClassSVM': {}, 'EllipticEnvelope': {}}
@@ -267,7 +270,7 @@ def main(df, user_n, session):
                 def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
                     # Comment:PATHの設定
-                    PATH = "result2021"
+                    PATH = "result2021part3"
                     os.makedirs(PATH, exist_ok=True)
                     # Columnの作成
                     users = pd.Series([self.u_n] * 4, name='user')
@@ -311,17 +314,85 @@ def main(df, user_n, session):
                 print(f"No test data:{ex}")
                 pass
 
+        def ocsvmtest(self):
+
+            # 目的関数を出力結果にあわせて本人：1，他人:-1に変更する．
+            global best_parameters
+            y_test_true = self.y_test.copy()
+            y_true = y_test_true.replace({self.u_n: 1, 0: -1})
+
+            for (train, test, test1, test2) in zip(self.x_train_ss, self.x_test_ss, self.x_test_t_ss, self.x_test_f_ss):
+                clf = OneClassSVM(nu=0.1,
+                                  kernel="rbf")
+
+                clf.fit(train)
+                pred = clf.predict(test)
+                normal_result = clf.predict(test1)
+                anomaly_result = clf.predict(test2)
+
+                y_score = clf.decision_function(test)
+
+                # 評価
+                scores_ocsvm = {}
+                far, frr, ber = far_frr_ber(normal_result, anomaly_result)
+
+                scores_ocsvm = {
+                    'Accuracy': accuracy_score(y_true=y_true, y_pred=pred),
+                    'Precision': precision_score(y_true, pred),
+                    'Recall': recall_score(y_true, pred),
+                    'F1': f1_score(y_true, pred),
+                    'AUC': roc_auc_score(y_true,
+                                         clf.decision_function(self.x_test_ss)),
+                    'FAR': far, 'FRR': frr, 'BER': ber}
+
+                print('\nパラメータの調整\n-------------------------------------------------------------')
+                train_X, test_X, train_Y, test_Y = train_test_split(
+                    train, self.y_train, train_size=40, test_size=10, random_state=0, shuffle=True)
+                print("Size of training set:{}　size of test set:{}".format(train_X.shape[0], test_X.shape[0]))
+
+                best_score = 0
+                kernels = ['rbf', 'poly', 'sigmoid']
+
+                for kernel in tqdm(kernels):
+                    for gamma in np.linspace(0.01, 1, 100):
+                        for coef0 in np.linspace(0, 1, 100):
+                            clf = OneClassSVM(kernel=kernel, gamma=gamma, coef0=coef0, nu=0.1)
+                            clf.fit(train_X)
+                            pred = clf.predict(test_X)
+                            Y_true2 = test_Y.copy()
+                            true_Y = Y_true2.replace({self.u_n: 1, 0: -1})
+                            score = accuracy_score(true_Y, pred)
+
+                            if score > best_score:
+                                best_score = score
+                                best_parameters = {'kernel': kernel, 'gamma': gamma, 'coef0': coef0, 'nu': 0.1}
+                print("Best score: {:.4f}".format(best_score))
+                print("Best parameters: {}".format(best_parameters))
+
+                new_clf = OneClassSVM(**best_parameters)
+                new_clf.fit(train)
+                pred = new_clf.predict(test)
+                test_score = accuracy_score(y_true, pred)
+                print("Best score on validation set:{:.4f}".format(best_score))
+                print("Best parameters:", best_parameters)
+                print("Test set score with best parameters:{:.4f}\n".format(test_score))
+
+                normal_result = new_clf.predict(test1)
+                anomaly_result = new_clf.predict(test2)
+
+                y_score = new_clf.decision_function(test)
 
 
-    oneclassone_a = OneClassOne(a, a_user_extract, user_n, 1, session)
-    oneclassone_a.registration_phase()
+    # oneclassone_a = OneClassOne(a, a_user_extract, user_n, 1, session)
+    # oneclassone_a.registration_phase()
     # oneclassone_a.authentication_phase()
-    oneclassone_b = OneClassOne(b, b_user_extract, user_n, 2, session)
-    oneclassone_b.registration_phase()
-    oneclassone_c = OneClassOne(c, c_user_extract, user_n, 3, session)
-    oneclassone_c.registration_phase()
+    # oneclassone_b = OneClassOne(b, b_user_extract, user_n, 2, session)
+    # oneclassone_b.registration_phase()
+    # oneclassone_c = OneClassOne(c, c_user_extract, user_n, 3, session)
+    # oneclassone_c.registration_phase()
     oneclassone_d = OneClassOne(d, d_user_extract, user_n, 4, session)
-    oneclassone_d.registration_phase()
+    # oneclassone_d.registration_phase()
+    oneclassone_d.ocsvmtest()
 
 
 if __name__ == '__main__':

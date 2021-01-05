@@ -213,9 +213,9 @@ def main(df, user_n, session):
                 # print(self.x_train.head(5))
 
                 # モデル
-                contamination = 0.01
-                models = [LocalOutlierFactor(n_neighbors=1, novelty=True, contamination=contamination),
-                          IsolationForest(n_estimators=1, contamination=contamination, behaviour='new', random_state=0),
+                contamination = 0.1
+                models = [LocalOutlierFactor(novelty=True, contamination=contamination),
+                          IsolationForest(contamination=contamination, behaviour='new', random_state=0),
                           OneClassSVM(nu=contamination, kernel="rbf"),
                           EllipticEnvelope(contamination=contamination, random_state=0)]
                 scores = {'LocalOutlierFactor': {}, 'IsolationForest': {}, 'OneClassSVM': {}, 'EllipticEnvelope': {}}
@@ -299,7 +299,7 @@ def main(df, user_n, session):
                 def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
                     # Comment:変更
-                    PATH= 'result2021'
+                    PATH= 'result2021part3'
                     os.makedirs(PATH, exist_ok=True)
                     # Columnの作成
                     users = pd.Series([self.u_n] * 4, name='user')
