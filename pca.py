@@ -56,6 +56,8 @@ def main(df, user_n, session):
     c_user_extract = select_user_flag(c, user_n, 'c')
     d_user_extract = select_user_flag(d, user_n, 'd')
 
+    os.makedirs('plot_pca', exist_ok=True)
+
     class PCAExp(object):
 
         def __init__(self, df_flag, df_flag_user_extract, u_n, flag_n, session_select):
@@ -97,6 +99,10 @@ def main(df, user_n, session):
         def pca_exp(self):
 
             try:
+
+                sessions = {'first': 'intra', 'latter': 'inter', 'all': 'combined',
+                            'all_test_shinario2': 'combined2'}
+
                 test_n = int(int(len(self.df_flag_user_extract) * 0.5)/2)
                 # print(self.y_test)
                 scaled_train = self.x_train_ss
@@ -113,9 +119,9 @@ def main(df, user_n, session):
                 plt.scatter(pca_results_test[:, 0][:test_n], pca_results_test[:, 1][:test_n], c='g')
                 plt.scatter(pca_results_test[:, 0][test_n:], pca_results_test[:, 1][test_n:], c='b')
                 # 主成分の寄与率を出力する
-                print('user:{0}, stroke:{1}'.format(self.u_n, self.flag_n))
-                print('各次元の寄与率: {0}'.format(pca.explained_variance_ratio_))
-                print('累積寄与率: {0}'.format(sum(pca.explained_variance_ratio_)))
+                # print('user:{0}, stroke:{1}'.format(self.u_n, self.flag_n))
+                # print('各次元の寄与率: {0}'.format(pca.explained_variance_ratio_))
+                # print('累積寄与率: {0}'.format(sum(pca.explained_variance_ratio_)))
 
                 # plt.show()
                 plt.close()
@@ -141,7 +147,7 @@ def main(df, user_n, session):
                     plt.close()
 
                     new_list = [round(pca3.explained_variance_ratio_[n], 3) for n in range(len(pca3.explained_variance_ratio_))]
-                    ax.set_title(f"{self.u_n}_{self.flag_n}_{self.session_select}\nPCA: {new_list}")
+                    ax.set_title(f"{self.u_n}_{self.flag_n}_{sessions[self.session_select]}\nPCA: {new_list}")
                     ax.set_xlabel('X')
                     ax.set_ylabel('Y')
                     ax.set_zlabel('Z')
@@ -152,15 +158,15 @@ def main(df, user_n, session):
                     buf = BytesIO()
                     fig.savefig(buf, bbox_inches='tight', pad_inches=0.0)
 
-                    print('user:{0}, stroke:{1}'.format(self.u_n, self.flag_n))
-                    print('各次元の寄与率: {0}'.format(pca3.explained_variance_ratio_))
-                    print('累積寄与率: {0}'.format(sum(pca3.explained_variance_ratio_)))
+                    # print('user:{0}, stroke:{1}'.format(self.u_n, self.flag_n))
+                    # print('各次元の寄与率: {0}'.format(pca3.explained_variance_ratio_))
+                    # print('累積寄与率: {0}'.format(sum(pca3.explained_variance_ratio_)))
 
                     return Image.open(buf)
 
                 render_frame(30)
                 images = [render_frame(angle) for angle in range(360)]
-                images[0].save(f'plot_pca/output{self.u_n}_{self.flag_n}_{self.session_select}.gif', save_all=True,
+                images[0].save(f'plot_pca/output{self.u_n}_{self.flag_n}_{sessions[self.session_select]}.gif', save_all=True,
                                append_images=images[1:],
                                optimize=False, duration=100, loop=0)
 
@@ -168,75 +174,6 @@ def main(df, user_n, session):
                 print(ex)
                 pass
 
-        def pca_scale(self):
-
-            try:
-                n = 1
-                scaled_df = self.X_test_ss
-                # pca = PCA(n_components=2)
-                # # pca.fit(X33_train_ss)
-                # pca.fit(scaled_df)
-                # pca_results = pca.transform(scaled_df)
-
-                pca = PCA(n_components=3)
-                pca.fit(scaled_df)
-                pca_results = pca.transform(scaled_df)
-                fig = plt.figure(1, figsize=(8, 6))
-                ax = Axes3D(fig, rect=[0, 0, 0.8, 0.8], elev=30, azim=60)
-                ax.set_title(
-                    'user:{0}, strokeType:{1}\n各次元の寄与率: PCA1: {2[0]:.3f} PCA2: {2[1]:.3f} PCA3: {2[2]:.3f}\n累積寄与率: {3:.3f}'.format(
-                        self.user_n, self.flag_n, pca.explained_variance_ratio_, sum(pca.explained_variance_ratio_)))
-                # colors = ["blue","orange"]
-                ax.scatter(pca_results[:, 0], pca_results[:, 1], pca_results[:, 2], s=20, c=self.Y_test, alpha=0.5,
-                           linewidth=0.5, edgecolors="k", cmap="cool")
-                ax.w_xaxis.set_label_text("PCA1")
-                ax.w_yaxis.set_label_text("PCA2")
-                ax.w_zaxis.set_label_text("PCA3")
-                ax.legend(["normal", "anormal"], loc="best")
-
-                # 主成分の寄与率を出力する
-                print('user:{0}, stroke:{1}'.format(self.u_n, self.flag_n))
-                print('各次元の寄与率: {0}'.format(pca.explained_variance_ratio_))
-                print('累積寄与率: {0}'.format(sum(pca.explained_variance_ratio_)))
-                plt.show()
-                # plt.close()
-            except ValueError:
-                pass
-
-        def pca(self):
-            try:
-                n = 1
-                scaled_df = self.X_test_ss
-                # pca = PCA(n_components=2)
-                # # pca.fit(X33_train_ss)
-                # pca.fit(scaled_df)
-                # pca_results = pca.transform(scaled_df)
-                pca = PCA(n_components=3)
-                pca.fit(scaled_df)
-                pca_results = pca.transform(scaled_df)
-                fig = plt.figure(1, figsize=(8, 6))
-                ax = Axes3D(fig, rect=[0, 0, 0.8, 0.8], elev=30, azim=60)
-                ax.set_title(
-                    'user:{0}, strokeType:{1}\n各次元の寄与率: PCA1: {2[0]:.3f} PCA2: {2[1]:.3f} PCA3: {2[2]:.3f}\n累積寄与率: {3:.3f}'.format(
-                        self.user_n, self.flag_n, pca.explained_variance_ratio_, sum(pca.explained_variance_ratio_)))
-                # colors = ["blue","orange"]
-                ax.scatter(pca_results[:, 0], pca_results[:, 1], pca_results[:, 2], s=20, c=self.Y_test, alpha=0.5,
-                           linewidth=0.5, edgecolors="k", cmap="cool")
-                ax.w_xaxis.set_label_text("PCA1")
-                ax.w_yaxis.set_label_text("PCA2")
-                ax.w_zaxis.set_label_text("PCA3")
-                ax.legend(["normal", "anormal"], loc="best")
-
-                # 主成分の寄与率を出力する
-                print('user:{0}, stroke:{1}'.format(self.user_n, self.flag_n))
-                print('各次元の寄与率: {0}'.format(pca.explained_variance_ratio_))
-                print('累積寄与率: {0}'.format(sum(pca.explained_variance_ratio_)))
-                plt.show()
-                # plt.close()
-
-
-            except ValueError:
-                pass
 
     oneclassone_a = PCAExp(a, a_user_extract, user_n, 1, session)
     oneclassone_a.pca_exp()
@@ -320,6 +257,10 @@ def main2(df, user_n, session):
         def pca_exp2(self):
 
             try:
+                # 名称変更用の辞書
+                sessions = {'first': 'intra', 'latter': 'inter', 'all': 'combined',
+                            'all_test_shinario2': 'combined2'}
+
                 test_n = int(int(len(self.df_flag_user_extract)*0.5)/2)
                 # print(self.y_test)
                 scaled_train = self.x_train_ss
@@ -336,9 +277,9 @@ def main2(df, user_n, session):
                 plt.scatter(pca_results_test[:, 0][:test_n], pca_results_test[:, 1][:test_n], c='g')
                 plt.scatter(pca_results_test[:, 0][test_n:], pca_results_test[:, 1][test_n:], c='b')
                 # 主成分の寄与率を出力する
-                print('user:{0}, stroke:{1}'.format(self.u_n, self.flag_n))
-                print('各次元の寄与率: {0}'.format(pca.explained_variance_ratio_))
-                print('累積寄与率: {0}'.format(sum(pca.explained_variance_ratio_)))
+                # print('user:{0}, stroke:{1}'.format(self.u_n, self.flag_n))
+                # print('各次元の寄与率: {0}'.format(pca.explained_variance_ratio_))
+                # print('累積寄与率: {0}'.format(sum(pca.explained_variance_ratio_)))
 
                 # plt.show()
                 plt.close()
@@ -364,7 +305,7 @@ def main2(df, user_n, session):
                     plt.close()
 
                     new_list = [round(pca3.explained_variance_ratio_[n], 3) for n in range(len(pca3.explained_variance_ratio_))]
-                    ax.set_title(f"{self.u_n}_{self.flag_n}_{self.session_select}\nPCA: {new_list}")
+                    ax.set_title(f"{self.u_n}_{self.flag_n}_{sessions[self.session_select]}\nPCA: {new_list}")
                     ax.set_xlabel('X')
                     ax.set_ylabel('Y')
                     ax.set_zlabel('Z')
@@ -375,15 +316,15 @@ def main2(df, user_n, session):
                     buf = BytesIO()
                     fig.savefig(buf, bbox_inches='tight', pad_inches=0.0)
 
-                    print('user:{0}, stroke:{1}'.format(self.u_n, self.flag_n))
-                    print('各次元の寄与率: {0}'.format(pca3.explained_variance_ratio_))
-                    print('累積寄与率: {0}'.format(sum(pca3.explained_variance_ratio_)))
+                    # print('user:{0}, stroke:{1}'.format(self.u_n, self.flag_n))
+                    # print('各次元の寄与率: {0}'.format(pca3.explained_variance_ratio_))
+                    # print('累積寄与率: {0}'.format(sum(pca3.explained_variance_ratio_)))
 
                     return Image.open(buf)
 
                 render_frame(30)
                 images = [render_frame(angle) for angle in range(360)]
-                images[0].save(f'plot_pca/output{self.u_n}_{self.flag_n}_{self.session_select}.gif', save_all=True,
+                images[0].save(f'plot_pca/output{self.u_n}_{self.flag_n}_{sessions[self.session_select]}.gif', save_all=True,
                                append_images=images[1:],
                                optimize=False, duration=100, loop=0)
 
@@ -438,15 +379,16 @@ if __name__ == '__main__':
     # combination = False
     frank_df = load_frank(False)
     session_list = ['first', 'latter', 'all', 'all_test_shinario2']
-    main(frank_df, 21, session='first')
+    # main(frank_df, 35, session='first')
     # # 41人いるよ
-    # for session in session_list:
-    #     for user in [35]:
-    #         main(frank_df, user, session=session)
+    for session in session_list:
+        for user in [2, 3, 23, 35, 38]:
+            main(frank_df, user, session=session)
     # for user in range(1, 42):
     #     main(frank_df, user)
 
     # frank_df2 = load_frank(True)
+    # print(len(frank_df2.columns))
     # for session in session_list:
-    #     for user in [23, 35]:
+    #     for user in [2, 3, 23, 35, 38]:
     #         main2(frank_df2, user, session)

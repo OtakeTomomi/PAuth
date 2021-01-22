@@ -314,7 +314,7 @@ def main(df, user_n, session):
                 print(f"No test data:{ex}")
                 pass
 
-        def ocsvmtest(self):
+        def ocsvmtest2(self):
 
             # 目的関数を出力結果にあわせて本人：1，他人:-1に変更する．
             global best_parameters
@@ -344,6 +344,8 @@ def main(df, user_n, session):
                     'AUC': roc_auc_score(y_true,
                                          clf.decision_function(self.x_test_ss)),
                     'FAR': far, 'FRR': frr, 'BER': ber}
+
+                print(scores_ocsvm)
 
                 print('\nパラメータの調整\n-------------------------------------------------------------')
                 train_X, test_X, train_Y, test_Y = train_test_split(
@@ -382,17 +384,148 @@ def main(df, user_n, session):
 
                 y_score = new_clf.decision_function(test)
 
+        def ocsvmtest(self):
+            try:
+                if list(self.test_f['user']) != 0:
+                    print(f'\n外れ値として扱うuserのnumber')
+                    print(list(self.test_f['user']), '\n')
 
-    # oneclassone_a = OneClassOne(a, a_user_extract, user_n, 1, session)
-    # oneclassone_a.registration_phase()
+                print(f'train_data: {self.x_train.shape}')
+                print(f'test_data: {self.x_test.shape}\n')
+
+                # print(self.x_train.head(5))
+
+                # モデル
+                contamination = 0.1
+                models = [LocalOutlierFactor(novelty=True, contamination=contamination),
+                          IsolationForest(contamination=contamination, behaviour='new', random_state=0),
+                          OneClassSVM(nu=contamination, kernel="rbf"),
+                          EllipticEnvelope(contamination=contamination, random_state=0)]
+                scores = {'LocalOutlierFactor': {}, 'IsolationForest': {}, 'OneClassSVM': {}, 'EllipticEnvelope': {}}
+                scores_test = {}
+
+                # 目的関数を出力結果にあわせて本人：1，他人:-1に変更する．
+                y_test_true = self.y_test.copy()
+                y_true = y_test_true.replace({self.u_n: 1, 0: -1})
+
+                # k分割交差検証 k=10
+                k = 10
+                kf = KFold(n_splits=k, shuffle=True, random_state=0)
+                for model in models:
+                    # columnsが消滅しているのでデータフレーム化してヘッダー追加
+                    x_train_ss_df = pd.DataFrame(self.x_train_ss, columns=self.columns)
+                    # print(len(self.y_train))
+                    count = 0
+                    for train_index, val_index in kf.split(x_train_ss_df, self.y_train):
+                        model.fit(x_train_ss_df.iloc[train_index])
+                        # 検証用データに偽物のデータを付与
+                        # self.df_flagではなくdatasplit_train_test_valで作成したどこにも属していないデータ？
+                        x_val, y_val_true, x_val_t, x_val_f = fake_val(self.df_flag, x_train_ss_df.iloc[val_index],
+                                                                       self.y_train.iloc[val_index], self.u_n,
+                                                                       self.x_train, self.columns,
+                                                                       self.fake_data_except_test_f)
+                        # 予測
+                        val_pred = model.predict(x_val)
+                        normal_result = model.predict(x_val_t)
+                        anomaly_result = model.predict(x_val_f)
+
+                        # print(y_val_true)
+                        # 評価
+                        far, frr, ber = far_frr_ber(normal_result, anomaly_result)
+
+                        scores[str(model).split('(')[0]][count] = {'Accuracy': accuracy_score(y_true=y_val_true,
+                                                                                              y_pred=val_pred),
+                                                                   'Precision': precision_score(y_val_true, val_pred),
+                                                                   'Recall': recall_score(y_val_true, val_pred),
+                                                                   'F1': f1_score(y_val_true, val_pred),
+                                                                   'AUC': roc_auc_score(y_val_true,
+                                                                                        model.decision_function(x_val)),
+                                                                   'FAR': far, 'FRR': frr, 'BER': ber}
+                        count += 1
+
+                    # testデータにて汎化性能評価
+                    model.fit(x_train_ss_df)
+                    test_pred = model.predict(self.x_test_ss)
+                    test_normal_result = model.predict(self.x_test_t_ss)
+                    test_anomaly_result = model.predict(self.x_test_f_ss)
+
+                    t_far, t_frr, t_ber = far_frr_ber(test_normal_result, test_anomaly_result)
+
+                    scores_test[str(model).split('(')[0]] = {
+                        'Accuracy': accuracy_score(y_true=y_true, y_pred=test_pred),
+                        'Precision': precision_score(y_true, test_pred),
+                        'Recall': recall_score(y_true, test_pred),
+                        'F1': f1_score(y_true, test_pred),
+                        'AUC': roc_auc_score(y_true,
+                                             model.decision_function(self.x_test_ss)),
+                        'FAR': t_far, 'FRR': t_frr, 'BER': t_ber}
+
+                # 結果のまとめ
+                model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
+                result_index = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER']
+                e = np.zeros((4, 8))
+                for i, m_i in enumerate(model_index):
+                    for j, df_i in enumerate(result_index):
+                        f = 0
+                        for m in range(k):
+                            f += scores[m_i][m][df_i]
+                        e[i][j] = f / k
+                a_df = pd.DataFrame(e, index=model_index, columns=result_index)
+                print('交差検証k=10の結果')
+                print(a_df)
+
+                s_test = pd.DataFrame(scores_test).T
+                print(f'認証用データ')
+                print(s_test[result_index])
+
+                # 書き出し
+                def output_data(a2, model_index2, result_index2, text, sessions_select):
+                    # フォルダがなければ自動的に作成
+                    # Comment:PATHの設定
+                    PATH = "result2021part3"
+                    os.makedirs(PATH, exist_ok=True)
+                    # Columnの作成
+                    users = pd.Series([self.u_n] * 4, name='user')
+                    flag = pd.Series([self.flag_n] * 4, name='flag')
+                    sessions = pd.Series([sessions_select] * 4, name='session')
+                    performance = pd.Series([text] * 4, name='performance')
+                    model2 = pd.Series(model_index2, name='model')
+                    # valとtestで条件指定してresult作成
+                    if text == 'val':
+                        result = pd.DataFrame(a2, columns=result_index2)
+                    else:
+                        # print('\ntestデータでの結果')
+                        result = pd.DataFrame(a2).T
+                        # print(result)
+                        result = result.reset_index()
+                        result = result.drop('index', 1)
+                    # 全て結合
+                    all_result = pd.concat([users, flag, performance, model2, result, sessions], axis=1)
+                    # 書き出し
+                    data_now = datetime.datetime.now().strftime("%Y-%m-%d")
+                    all_result.to_csv(f'{PATH}/result_{data_now}_{text}.csv', mode='a', header=False,
+                                      index=False)
+
+                # 交差検証の結果の書き出し
+                output_data(e, model_index, result_index, 'val', self.session_select)
+                # テストデータの結果の書き出し
+                output_data(scores_test, model_index, result_index, 'test', self.session_select)
+            except AttributeError as ex:
+                print(f"No train data:{ex}")
+                pass
+
+
+
+    oneclassone_a = OneClassOne(a, a_user_extract, user_n, 1, session)
+    oneclassone_a.registration_phase()
     # oneclassone_a.authentication_phase()
-    # oneclassone_b = OneClassOne(b, b_user_extract, user_n, 2, session)
-    # oneclassone_b.registration_phase()
-    # oneclassone_c = OneClassOne(c, c_user_extract, user_n, 3, session)
-    # oneclassone_c.registration_phase()
+    oneclassone_b = OneClassOne(b, b_user_extract, user_n, 2, session)
+    oneclassone_b.registration_phase()
+    oneclassone_c = OneClassOne(c, c_user_extract, user_n, 3, session)
+    oneclassone_c.registration_phase()
     oneclassone_d = OneClassOne(d, d_user_extract, user_n, 4, session)
-    # oneclassone_d.registration_phase()
-    oneclassone_d.ocsvmtest()
+    oneclassone_d.registration_phase()
+    # oneclassone_d.ocsvmtest()
 
 
 if __name__ == '__main__':
@@ -401,7 +534,8 @@ if __name__ == '__main__':
     # combination = False
     frank_df = load_frank(False)
     session_list = ['first', 'latter', 'all', 'all_test_shinario2']
-    # 41人いるよ
-    for sessions in session_list:
-        for user in range(1, 42):
-            main(frank_df, user, session=sessions)
+    main(frank_df, 23, session=session_list[0])
+    # # 41人いるよ
+    # for sessions in session_list:
+    #     for user in range(1, 42):
+    #         main(frank_df, user, session=sessions)

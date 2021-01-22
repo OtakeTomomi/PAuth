@@ -5,13 +5,13 @@ import pprint
 
 
 # Comment：変更必要あり
-PATH = 'result2021'
-# PATH2 = 'result2021/matome'
-PATH2 = 'result2021/matome_comb'
-# filename_val = 'result_2021-01-03_val'
-# filename_test = 'result_2021-01-03_test'
-filename_val = 'result_2021-01-03_val_comb'
-filename_test = 'result_2021-01-03_test_comb'
+PATH = 'result2021part3'
+# PATH2 = 'result2021part3/matome'
+PATH2 = 'result2021part3/matome_comb'
+# filename_val = 'result_2021-01-05_val'
+# filename_test = 'result_2021-01-05_test'
+filename_val = 'result_2021-01-05_val_comb'
+filename_test = 'result_2021-01-05_test_comb'
 
 # Columnのリスト
 val_columns = ['user', 'flag', 'performance', 'model', 'Accuracy', 'Precision',
@@ -84,6 +84,7 @@ def calc(ct, ct_list, df, columns, model_index, perf, session_list):
                 for j, column in enumerate(columns[4:12]):
                     data = df[column].xs([s, k, perf, model], level=['scenario', 'flag', 'performance', 'model'])
                     # print(data)
+
                     a[i][j] = data.mean()
                     # print(a)
                     b[i][j] = data.max()

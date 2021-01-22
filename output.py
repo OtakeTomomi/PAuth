@@ -10,7 +10,7 @@ from PIL import Image
 # from matplotlib import gridspec
 
 
-def main(PATH, n):
+def main(PATH, plotfile, n):
     # 結果の読み込み
     re_mean_val = pd.read_csv(f'{PATH}result_mean_val.csv', sep=",", header=None)
     re_max_val = pd.read_csv(f'{PATH}result_max_val.csv', sep=",", header=None)
@@ -64,7 +64,7 @@ def main(PATH, n):
     re_min_test = re_min_test.set_index(['scenario', 'flag', 'performance', 'model'])
     re_std_test = re_std_test.set_index(['scenario', 'flag', 'performance', 'model'])
 
-    os.makedirs(f'{PATH}plot_result2', exist_ok=True)
+    os.makedirs(f'{PATH}{plotfile}', exist_ok=True)
 
     def plot_re(re_mean_m, re_max_m, re_min_m, re_std_m, p):
         # multi_flag[11,13,22,24,31,33,42,44]
@@ -73,7 +73,8 @@ def main(PATH, n):
         sessions = {'first': 'intra', 'latter': 'inter', 'all': 'combined', 'all_test_shinario2': 'combined2'}
         # s = 'first'
         # k = 3
-        m = ['_', 'up', 'right', 'down', 'left']
+        # m = ['_', 'up', 'right', 'down', 'left']
+        m = ['-', 'up', 'left', 'down', 'right']
         # plt.figure(1)
 
         for s in scenario_list:
@@ -152,6 +153,8 @@ def main(PATH, n):
                 # y軸のメモリ
                 plt.yticks(np.arange(0.0, 1.1, 0.1))
 
+                # plt.ylim(0.0, 1.0)
+
                 # 凡例
                 plt.legend(loc='best')
 
@@ -172,20 +175,20 @@ def main(PATH, n):
                     name = 'OneclassOne'
                 else:
                     name = 'OneclassTwo'
-                plt.savefig(f'{PATH}plot_result2/{name}_{p}_{sessions[s]}_{k}.png')
+                plt.savefig(f'{PATH}{plotfile}/{name}_{p}_{sessions[s]}_{k}.png')
 
                 # 描画
                 # plt.show()
                 plt.close()
 
-                img = Image.open(f'{PATH}plot_result2/{name}_{p}_{sessions[s]}_{k}.png')
+                img = Image.open(f'{PATH}{plotfile}/{name}_{p}_{sessions[s]}_{k}.png')
                 # (left, upper, right, bottom)
                 # print(img.size)
                 box = (0, 100, 600, 770)
                 new_img = img.crop(box)
                 # 画像表示
                 # new_img.show()
-                new_img.save(f'{PATH}plot_result2/{name}_{p}_{sessions[s]}_{k}.png')
+                new_img.save(f'{PATH}{plotfile}/{name}_{p}_{sessions[s]}_{k}.png')
 
     plot_re(re_mean_val, re_max_val, re_min_val, re_std_val, p='val')
     plot_re(re_mean_test, re_max_test, re_min_test, re_std_test, p='test')
@@ -193,8 +196,10 @@ def main(PATH, n):
 
 if __name__ == '__main__':
     # print("結果")
-    # PATH = 'result2021/matome/'
-    PATH = 'result2021/matome_comb/'
+    # PATH = 'result2021part3/matome/'
+    PATH = 'result2021part3/matome_comb/'
+    plotfile = 'plot_result2'
     # combのときはn=16にする
-    main(PATH, n=16)
+    main(PATH, plotfile, n=16)
+
 
