@@ -26,6 +26,8 @@ from expmodule.dataset import load_frank
 from expmodule.flag_split import flag4
 from expmodule.datasplit_train_test_val import datasplit_session
 from expmodule.datasplit_train_test_val import x_y_split
+from expmodule.datasplit_train_test_val import _outlier
+from expmodule.datasplit_train_test_val import _tf_concat
 
 # 交差検証
 from sklearn.model_selection import KFold
@@ -40,6 +42,8 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 
 from tqdm import tqdm
+from tqdm import trange
+
 
 # warning ignore code
 import warnings
@@ -54,15 +58,18 @@ def main(df, user_n, session):
     a, b, c, d = flag4(df, 'flag')
 
     # flagごとに選択したユーザを抽出する
-    def select_user_flag(df_flag, u_n, text):
+    def select_user_flag(df_flag, u_n, flag_text):
         # フォルダがなければ自動的に作成
-        os.makedirs('result/info', exist_ok=True)
+        os.makedirs('result2022/zikken_3-3-2', exist_ok=True)
         df_flag_user_extract = df_flag[df_flag['user'] == u_n]
-        # 1-41人全員分行ったらコメントアウト→2020/11/05済
-        data_item = pd.DataFrame([u_n, text, len(df_flag_user_extract)]).T
-        # data_item.to_csv(f'result/info/main_oneclass_df_flag_user_extract_item.csv',
+        # Comment: 変更箇所3 1-41人全員分行ったらコメントアウト→2020/11/05済→2021/12/30済(書き換え特徴量プログラムにデータセットを通したため)
+        data_item = pd.DataFrame([u_n, flag_text, len(df_flag_user_extract)]).T
+        # data_item.to_csv(f'result2022/zikken_3-3-2/main_oneclass_df_flag_user_extract_item.csv',
         #                  mode='a', header=None, index=None)
         return df_flag_user_extract
+
+    # 方向関係なし
+    all_user_extrtact = select_user_flag(df, user_n, 'all')
 
     a_user_extract = select_user_flag(a, user_n, 'a')
     b_user_extract = select_user_flag(b, user_n, 'b')
@@ -119,6 +126,8 @@ def main(df, user_n, session):
         # スケーリング
         ss = preprocessing.StandardScaler()
         ss.fit(x_train)
+        # print('Error箇所')
+        # print(x_val_f)
         x_val_f_ss = ss.transform(x_val_f)
         x_val_f_ss_df = pd.DataFrame(x_val_f_ss)
         x_val_f_ss_df.columns = columns
@@ -135,10 +144,11 @@ def main(df, user_n, session):
 
         return x_val, y_val_true, x_val_t, x_val_f_ss_df
 
+
     class OneClassOne(object):
 
         def __init__(self, df_flag, df_flag_user_extract, u_n, flag_n, session_select):
-            flag_memori = ['0', 'a', 'b', 'c', 'd']
+            flag_memori = ['all', 'a', 'b', 'c', 'd']
             print(
                 f'\n-----------------------------------------------------------------\n'
                 f'{user_n} : {flag_memori[flag_n]} : {session_select}'
@@ -150,9 +160,11 @@ def main(df, user_n, session):
                 self.flag_n = flag_n
                 self.session_select = session_select
 
+                # Comment: 変更箇所1 train_sizeとtest_seizeの設定, defaultは40と10
                 self.x_train, self.y_train, self.x_test, self.y_test, self.x_test_t,\
                     self.y_test_t, self.x_test_f, self.y_test_f, self.test_f, self.fake_data_except_test_f \
-                    = datasplit_session(self.df_flag, self.df_flag_user_extract, self.u_n, self.session_select, train_size=40)
+                    = datasplit_session(self.df_flag, self.df_flag_user_extract, self.u_n, self.session_select,
+                                        train_size=40, test_size=20)
 
                 # 標準化
                 ss = preprocessing.StandardScaler()
@@ -269,8 +281,8 @@ def main(df, user_n, session):
                 # 書き出し
                 def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
-                    # Comment:PATHの設定
-                    PATH = "result2021part3"
+                    # Comment:変更箇所2 PATHの設定
+                    PATH = "result2022"
                     os.makedirs(PATH, exist_ok=True)
                     # Columnの作成
                     users = pd.Series([self.u_n] * 4, name='user')
@@ -301,8 +313,118 @@ def main(df, user_n, session):
             except AttributeError as ex:
                 print(f"No train data:{ex}")
                 pass
+            except ValueError as e:
+                print(f'data Nonconformity: {e}')
+                pass
+
+        # 特徴量評価(1つずつ追加していく)
+        def add_data(self):
+
+            try:
+                if list(self.test_f['user']) != 0:
+                    print(f'\n外れ値として扱うuserのnumber')
+                    print(list(self.test_f['user']), '\n')
+
+                print(f'train_data: {self.x_train.shape}')
+                print(f'test_data: {self.x_test.shape}\n')
+
+                # モデル
+                contamination = 0.1
+                models = [LocalOutlierFactor(novelty=True, contamination=contamination),
+                          IsolationForest(contamination=contamination, behaviour='new', random_state=0),
+                          OneClassSVM(nu=contamination, kernel="rbf", gamma='auto'),
+                          EllipticEnvelope(contamination=contamination, random_state=0)]
+
+                # 目的関数を出力結果にあわせて本人：1，他人:-1に変更する．
+                y_test_true = self.y_test.copy()
+                y_true = y_test_true.replace({self.u_n: 1, 0: -1})
+
+                def data_split(df_flag, df_flag_user_extract, user_n2, session_select='first', train_size=60, test_size=10):
+                    df_session = df_flag_user_extract.copy()
+                    df_first_pre = df_session.query('1<= doc < 6')
+                    df_flag_data = df_flag.query('1<= doc < 8')
+                    # docの役目は終わったので消去
+                    df_first = df_first_pre.drop('doc', axis=1)
+                    df_flag_pre = df_flag_data.drop('doc', axis=1)
+
+                    if df_first['user'].count() >= (train_size + test_size):
+                        # 説明変数と目的変数に分割
+                        x, y = x_y_split(df_first)
+
+                        # その他のデータとテスト用(認証用)データに切り分け
+                        x_train_all2, x_test_t2, y_train_all2, y_test_t2 = train_test_split(x, y, test_size=test_size,
+                                                                                            random_state=0, shuffle=True)
+                        # テストデータの個数をカウント➝外れ値はテストデータ数と同じ数だけ用意する
+                        # _outlinerの呼び出し
+                        fake_data_except_test_f2, test_f2 = _outlier(df_flag_pre, user_n, test_size)
+
+                        # test_tとtest_fの結合
+                        x_test2, y_test2, x_test_f2, y_test_f2 = _tf_concat(x_test_t2, y_test_t2, test_f2)
+
+                        return x_train_all2, y_train_all2, x_test2, y_test2, x_test_t2, y_test_t2, \
+                               x_test_f2, y_test_f2, test_f2, fake_data_except_test_f2
+
+                    else:
+                        print('None')
+                        return 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+                x_train_all, y_train_all, x_test, y_test, x_test_t, y_test_t, x_test_f, y_test_f, test_f, \
+                    fake_data_except_test_f = data_split(self.df_flag, self.df_flag_user_extract, self.u_n,
+                                                         self.session_select, test_size=10)
+
+                x_train = x_train_all.sample(frac=1, random_state=0)
+
+                for model in tqdm(models, desc=f'{self.u_n}_1st loop'):
+
+                    for i in tqdm(range(5, 61), desc=f'{self.u_n}_2nd loop'):
+                        ans = [self.u_n, self.flag_n, self.session_select, str(model).split('(')[0], i]
+                        X_train = x_train[:i]
+                        # 標準化
+                        ss = preprocessing.StandardScaler()
+                        ss.fit(X_train)
+                        X_train_ss = ss.transform(X_train)
+                        x_test_ss = ss.transform(x_test)
+                        x_test_t_ss = ss.transform(x_test_t)
+                        x_test_f_ss = ss.transform(x_test_f)
+
+                        X_train_ss_df = pd.DataFrame(X_train_ss, columns=self.columns)
+
+                        model.fit(X_train_ss_df)
+                        test_pred = model.predict(x_test_ss)
+                        test_normal_result = model.predict(x_test_t_ss)
+                        test_anomaly_result = model.predict(x_test_f_ss)
+
+                        t_far, t_frr, t_ber = far_frr_ber(test_normal_result, test_anomaly_result)
+
+                        accuracy = accuracy_score(y_true=y_true, y_pred=test_pred)
+                        precision = precision_score(y_true, test_pred)
+                        recall = recall_score(y_true, test_pred)
+                        f1 = f1_score(y_true, test_pred)
+                        auc = roc_auc_score(y_true, model.decision_function(x_test_ss))
+                        far = t_far
+                        frr = t_frr
+                        ber = t_ber
+
+                        ans.extend([accuracy, precision, recall, f1, auc, far, frr, ber])
+
+                        # print(ans)
+                        s = pd.DataFrame(ans).T
+                        PATH = "result2022"
+                        os.makedirs(PATH, exist_ok=True)
+                        s.to_csv(f'{PATH}/adddata.csv', mode='a', header=False, index=False)
+
+                # 結果のまとめ
+                model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'EllipticEnvelope']
+                result_index = ['count', 'Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'FAR', 'FRR', 'BER']
 
 
+            except AttributeError as ex:
+                print(f"No train data:{ex}")
+                pass
+
+            except ValueError as ex:
+                print(f"{ex}")
+                pass
 
         def authentication_phase(self):
             # TODO: あとで考える
@@ -482,7 +604,7 @@ def main(df, user_n, session):
                 def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
                     # Comment:PATHの設定
-                    PATH = "result2021part3"
+                    PATH = "result2022"
                     os.makedirs(PATH, exist_ok=True)
                     # Columnの作成
                     users = pd.Series([self.u_n] * 4, name='user')
@@ -514,18 +636,28 @@ def main(df, user_n, session):
                 print(f"No train data:{ex}")
                 pass
 
-
+    oneclassone_all = OneClassOne(df, all_user_extrtact, user_n, 0, session)
+    oneclassone_all.registration_phase()
 
     oneclassone_a = OneClassOne(a, a_user_extract, user_n, 1, session)
     oneclassone_a.registration_phase()
     # oneclassone_a.authentication_phase()
+    # oneclassone_a.add_data()
+
     oneclassone_b = OneClassOne(b, b_user_extract, user_n, 2, session)
     oneclassone_b.registration_phase()
+    # oneclassone_b.add_data()
+
     oneclassone_c = OneClassOne(c, c_user_extract, user_n, 3, session)
     oneclassone_c.registration_phase()
+    # oneclassone_c.add_data()
+
     oneclassone_d = OneClassOne(d, d_user_extract, user_n, 4, session)
     oneclassone_d.registration_phase()
     # oneclassone_d.ocsvmtest()
+    # oneclassone_d.add_data()
+
+    # add_data
 
 
 if __name__ == '__main__':
@@ -534,8 +666,17 @@ if __name__ == '__main__':
     # combination = False
     frank_df = load_frank(False)
     session_list = ['first', 'latter', 'all', 'all_test_shinario2']
-    main(frank_df, 23, session=session_list[0])
-    # # 41人いるよ
-    # for sessions in session_list:
-    #     for user in range(1, 42):
-    #         main(frank_df, user, session=sessions)
+    # main(frank_df, 23, session=session_list[0])
+    # 41人いるよ 通常
+    for sessions in session_list:
+        for user in range(1, 42):
+            main(frank_df, user, session=sessions)
+
+
+    # add_data, これは実行しなくてもOK
+    # for user in range(1, 42):
+    #     main(frank_df, user, session='first')
+
+
+    # test
+    # main(frank_df, 23, session='first')
