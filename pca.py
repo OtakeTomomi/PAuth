@@ -1,6 +1,6 @@
 # 何も書いてないじゃん
 
-# import numpy as np
+import numpy as np
 import pandas as pd
 import os
 
@@ -56,12 +56,12 @@ def main(df, user_n, session):
     c_user_extract = select_user_flag(c, user_n, 'c')
     d_user_extract = select_user_flag(d, user_n, 'd')
 
-    os.makedirs('plot_pca', exist_ok=True)
+    os.makedirs('result2022/plot_pca', exist_ok=True)
 
     class PCAExp(object):
 
         def __init__(self, df_flag, df_flag_user_extract, u_n, flag_n, session_select):
-            flag_memori = ['0', 'a', 'b', 'c', 'd']
+            flag_memori = ['0', 'a', 'b', 'c', 'd', 'all_flag']
             print(
                 f'\n-----------------------------------------------------------------\n'
                 f'{user_n} : {flag_memori[flag_n]} : {session_select}'
@@ -164,9 +164,10 @@ def main(df, user_n, session):
 
                     return Image.open(buf)
 
+                os.makedirs('result2022/plot_pca', exist_ok=True)
                 render_frame(30)
                 images = [render_frame(angle) for angle in range(360)]
-                images[0].save(f'plot_pca/output{self.u_n}_{self.flag_n}_{sessions[self.session_select]}.gif', save_all=True,
+                images[0].save(f'result2022/plot_pca/output{self.u_n}_{self.flag_n}_{sessions[self.session_select]}.gif', save_all=True,
                                append_images=images[1:],
                                optimize=False, duration=100, loop=0)
 
@@ -189,12 +190,36 @@ def main(df, user_n, session):
 def main2(df, user_n, session):
     # データをmulti_flagを基準に分割
     aa, ab, ac, ad, ba, bb, bc, bd, ca, cb, cc, cd, da, db, dc, dd = flag16(df, 'multi_flag')
+    def timeprocess(dffue):
+        #     for i in range(len(df)):
+        dffue['between'] = dffue['stroke_inter'].iloc[:] - dffue['stroke_duration'].iloc[:]
 
+        def outlier_2s(dffue):
+            col = dffue['between']
+            # 平均と標準偏差
+            average = np.mean(col)
+            sd = np.std(col)
+
+            # 外れ値の基準点
+            outlier_min = average - (sd) * 2
+            outlier_max = average + (sd) * 2
+
+            # 範囲から外れている値を除く
+            col[col < outlier_min] = None
+            col[col > outlier_max] = None
+            return dffue.dropna(how='any', axis=0)
+
+        dffue2 = outlier_2s(dffue)
+        dffue3 = dffue2.drop({'between'}, axis=1)
+        return dffue3
     # flagごとに選択したユーザを抽出する
     def select_user_flag(df_flag, u_n, text):
         os.makedirs('result/info', exist_ok=True)
         df_flag_user_extract = df_flag[df_flag['user'] == u_n]
-        return df_flag_user_extract
+
+        df_flag_user_extract2 = timeprocess(df_flag_user_extract)
+        # data_item[3] = pd.DataFrame([len(df_flag_user_extract2)])
+        return df_flag_user_extract2
 
     aa_user_extract = select_user_flag(aa, user_n, 'aa')
     ab_user_extract = select_user_flag(ab, user_n, 'ab')
@@ -300,6 +325,27 @@ def main2(df, user_n, session):
                     ax.scatter(pca3_results_test[:, 0][test_n:], pca3_results_test[:, 1][test_n:], pca3_results_test[:, 2][test_n:],
                                c='b', alpha=0.5, linewidth=0.5, cmap="cool", s=20)
 
+                    X2 = pca3_results_train[:, 0]
+                    Y2 = pca3_results_train[:, 1]
+                    Z2 = pca3_results_train[:, 2]
+
+                    def reject_outliers(data, m=2):
+                        return data[abs(data - np.mean(data)) < m * np.std(data)]
+
+                    X = reject_outliers(X2)
+                    Y = reject_outliers(Y2)
+                    Z = reject_outliers(Z2)
+
+                    max_range = np.array([X.max()-X.min(), Y.max()-Y.min(), Z.max()-Z.min()]).max() * 0.5
+
+                    mid_x = (X.max() + X.min()) * 0.5
+                    mid_y = (Y.max() + Y.min()) * 0.5
+                    mid_z = (Z.max() + Z.min()) * 0.5
+
+                    ax.set_xlim(mid_x - max_range * 1.5, mid_x + max_range * 1.5)
+                    ax.set_ylim(mid_y - max_range * 1.5, mid_y + max_range * 1.5)
+                    ax.set_zlim(mid_z - max_range * 1.5, mid_z + max_range * 1.5)
+
                     ax.view_init(30, angle)
                     # plt.show()
                     plt.close()
@@ -322,9 +368,10 @@ def main2(df, user_n, session):
 
                     return Image.open(buf)
 
+                os.makedirs('result2022/plot_pca', exist_ok=True)
                 render_frame(30)
                 images = [render_frame(angle) for angle in range(360)]
-                images[0].save(f'plot_pca/output{self.u_n}_{self.flag_n}_{sessions[self.session_select]}.gif', save_all=True,
+                images[0].save(f'result2022/plot_pca/output{self.u_n}_{self.flag_n}_{sessions[self.session_select]}.gif', save_all=True,
                                append_images=images[1:],
                                optimize=False, duration=100, loop=0)
 
@@ -377,18 +424,21 @@ if __name__ == '__main__':
     print("実験用アルゴリズム動作確認")
 
     # combination = False
-    frank_df = load_frank(False)
+    # frank_df = load_frank(False)
     session_list = ['first', 'latter', 'all', 'all_test_shinario2']
     # main(frank_df, 35, session='first')
     # # 41人いるよ
-    for session in session_list:
-        for user in [2, 3, 23, 35, 38]:
-            main(frank_df, user, session=session)
-    # for user in range(1, 42):
-    #     main(frank_df, user)
-
-    # frank_df2 = load_frank(True)
-    # print(len(frank_df2.columns))
     # for session in session_list:
     #     for user in [2, 3, 23, 35, 38]:
-    #         main2(frank_df2, user, session)
+    #         main(frank_df, user, session=session)
+
+    # for session in session_list:
+    #     for user in range(1, 42):
+    #         main(frank_df, user, session=session)
+
+    # combination = True
+    frank_df2 = load_frank(True)
+    # print(len(frank_df2.columns))
+    for session in session_list:
+        for user in range(1, 42):
+            main2(frank_df2, user, session)
