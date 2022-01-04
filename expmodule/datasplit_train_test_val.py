@@ -57,7 +57,7 @@ def _tf_concat(x_test_t, y_test_t, test_f):
 
 
 def _train_test(df_flag, df_flag_user_extract, user_n, test_size, train_size):
-    if df_flag_user_extract['user'].count() >= 50:
+    if df_flag_user_extract['user'].count() >= train_size + test_size:
         # 説明変数と目的変数に分割
         x, y = x_y_split(df_flag_user_extract)
 
@@ -85,7 +85,6 @@ def doc_conform(df_flag):
     for i in range(1, 42):
         doc_list = df_flag['doc'].value_counts().index.tolist()
         print(f'{i}:{sorted(doc_list)}')
-
 
 
 def datasplit_session(df_flag, df_flag_user_extract, user_n, session_select='all', train_size=40, test_size=10):

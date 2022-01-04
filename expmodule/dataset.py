@@ -4,7 +4,7 @@ The current dataset to be loaded is a frank dataset only.
 """
 
 # import os.path
-import os
+# import os
 import pandas as pd
 import pprint
 # import pickle
@@ -12,7 +12,11 @@ import pprint
 
 def read_frank(combination_flag):
     if combination_flag:
+        print('two-stroke')
+
         df_ori_t = pd.read_csv('/Users/otaketomomi/PycharmProjects/PAuth/dataset_create/expdata_doc.csv', sep=',')
+        # Comment: 変更箇所 実験3-*-2のみ
+        # df_ori_t = pd.read_csv('/Users/otaketomomi/PycharmProjects/PAuth/15_frank_features-umdaa/two_stroke/expdata_fu_doc.csv', sep=',')
         # 不要なものを列で削除101
         # df_drop_t = df_ori_t.drop({'Unnamed: 0', 'flag', 'user2', 'doc2', 'flag2', 'user_ave', 'doc_ave', 'flag_ave'},
         #                           axis=1)
@@ -35,16 +39,23 @@ def read_frank(combination_flag):
 
         return df_drop_t2
     else:
-        df_ori_f = pd.read_csv("/Users/otaketomomi/PycharmProjects/PAuth/02_features/featMat.csv", sep=",")
-        df_ori_f.columns = ['user', 'doc', 'stroke_inter', 'stroke_duration', 'start_x', 'start_y', 'stop_x', 'stop_y',
+        print('one-stroke')
+        df_ori_f_columns = ['user', 'doc', 'stroke_inter', 'stroke_duration', 'start_x', 'start_y', 'stop_x', 'stop_y',
                             'direct_ete_distance', 'mean_result_leng', 'flag', 'direct_ete_line', 'phone',
                             '20_pairwise_v', '50_pairwise_v', '80_pairwise_v', '20_pairwise_acc', '50_pairwise_acc',
                             '80_pairwise_acc', '3ots_m_v', 'ete_larg_deviation', '20_ete_line', '50_ete_line',
                             '80_ete_line', 'ave_direction', 'length_trajectory', 'ratio_ete', 'ave_v', '5points_m_acc',
                             'm_stroke_press', 'm_stroke_area_cover', 'finger_orien', 'cd_finger_orien', 'phone_orien']
+        df_ori_f = pd.read_csv("/Users/otaketomomi/PycharmProjects/PAuth/02_features/featMat.csv", sep=",",
+                               names=df_ori_f_columns)
+        # Comment: 変更箇所 実験3-*-2のみ
+        # df_ori_f = pd.read_csv("/Users/otaketomomi/PycharmProjects/PAuth/15_frank_features-umdaa/one_stroke/frank_features_calc.csv", sep=",",
+        #                        names=df_ori_f_columns)
+
         # df_drop = df_ori_f.drop('phone', axis=1)
         # 'finger_orien', 'cd_finger_orien', 'phone_orien'を削除する場合28
         df_drop = df_ori_f.drop({'phone', 'finger_orien', 'cd_finger_orien', 'phone_orien'}, axis=1)
+        # 欠損値削除: how='any'で欠損値が1つでも含まれる行(axis=0)を削除
         df_drop_f = df_drop.dropna(axis=0, how='any')
         return df_drop_f
 

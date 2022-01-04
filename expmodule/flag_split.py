@@ -3,10 +3,11 @@ This module split dataset by Stroke direction.
 
 変換表
 a = 1:up
-b = 2:right
+b = 2:left
 c = 3:down
-d = 4:left
+d = 4:right
 """
+
 
 
 def flag4(df, flagtext):
