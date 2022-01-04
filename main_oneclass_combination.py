@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import datetime
 from tqdm import tqdm
+import itertools
+from itertools import combinations
 
 # スケーリング
 from sklearn import preprocessing
@@ -73,17 +75,19 @@ def main(df, user_n, session):
 
     # flagごとに選択したユーザを抽出する
     def select_user_flag(df_flag, u_n, text):
-        os.makedirs('result/info', exist_ok=True)
+        os.makedirs('result2022/zikken_3-4-2', exist_ok=True)
         df_flag_user_extract = df_flag[df_flag['user'] == u_n]
-        # Comment: 1-41人全員分行ったらコメントアウト→2020/11/05済
+        # Comment: 変更箇所3 1-41人全員分行ったらコメントアウト→2020/11/05済
         data_item = pd.DataFrame([u_n, text, len(df_flag_user_extract)]).T
-        # data_item.to_csv(f'result/info/main_oneclass_combination_df_flag_user_extract_item.csv', mode='a', header=None, index=None)
+        # data_item.to_csv(f'result2022/zikken_3-4-2/main_oneclass_combination_df_flag_user_extract_item.csv', mode='a', header=None, index=None)
 
         # df_flag_user_extract2 = timeprocess(df_flag_user_extract)
         # data_item[3] = pd.DataFrame([len(df_flag_user_extract2)])
-        # Comment: 1-41人全員分行ったらコメントアウト→2020/11/05済→2021/01/03済
-        # data_item.to_csv(f'result2021/main_oc_comb_flag_user_extract_item.csv', mode='a', header=None, index=None)
+        # Comment: 1-41人全員分行ったらコメントアウト→2020/11/05済→2021/01/03済→謎
+        # data_item.to_csv(f'result2022/zikken_3-4-2/main_oc_comb_flag_user_extract_item.csv', mode='a', header=None, index=None)
         return df_flag_user_extract
+
+    all_user_extract = select_user_flag(df, user_n, 'all_two')
 
     aa_user_extract = select_user_flag(aa, user_n, 'aa')
     ab_user_extract = select_user_flag(ab, user_n, 'ab')
@@ -171,7 +175,7 @@ def main(df, user_n, session):
     class OneClassTwo(object):
 
         def __init__(self, df_flag, df_flag_user_extract, u_n, flag_n, session_select):
-            flag_memori = ['0', 'a', 'b', 'c', 'd']
+            flag_memori = ['0', 'a', 'b', 'c', 'd', 'all_flag']
             print(
                 f'\n-----------------------------------------------------------------\n'
                 f'{user_n} : {flag_memori[flag_n // 10]} + {flag_memori[flag_n % 10]} : {session_select}'
@@ -183,10 +187,11 @@ def main(df, user_n, session):
                 self.flag_n = flag_n
                 self.session_select = session_select
 
+                # Comment: 変更箇所1 train_sizeとtest_seizeの設定, defaultは40と10
                 self.x_train, self.y_train, self.x_test, self.y_test, self.x_test_t, \
                     self.y_test_t, self.x_test_f, self.y_test_f, self.test_f, self.fake_data_except_test_f \
                     = datasplit_session(self.df_flag, self.df_flag_user_extract, self.u_n, self.session_select,
-                                        train_size=50)
+                                        train_size=40, test_size=10)
 
                 # 標準化
                 ss = preprocessing.StandardScaler()
@@ -303,8 +308,8 @@ def main(df, user_n, session):
                 # result_old.csvへ書き出し
                 def output_data(a2, model_index2, result_index2, text, sessions_select):
                     # フォルダがなければ自動的に作成
-                    # Comment:変更
-                    PATH= 'result2021part3'
+                    # Comment:変更箇所2
+                    PATH = 'result2022'
                     os.makedirs(PATH, exist_ok=True)
                     # Columnの作成
                     users = pd.Series([self.u_n] * 4, name='user')
@@ -334,6 +339,9 @@ def main(df, user_n, session):
                 output_data(scores_test, model_index, result_index, 'test', self.session_select)
             except AttributeError as ex:
                 print(f"No train data:{ex}")
+                pass
+            except ValueError as e:
+                print(f'data Nonconformity: {e}')
                 pass
 
         def authentication_phase(self):
@@ -453,6 +461,7 @@ def main(df, user_n, session):
                 print("{ex}")
                 pass
 
+        # 追加した特徴量を1つずつ基本的な特徴量に追加していく
         def feature(self):
 
             try:
@@ -465,10 +474,13 @@ def main(df, user_n, session):
 
                 # モデル
                 contamination = 0.1
+                # models = [LocalOutlierFactor(novelty=True, contamination=contamination),
+                #           IsolationForest(contamination=contamination, behaviour='new', random_state=0),
+                #           OneClassSVM(nu=contamination, kernel="rbf", gamma='auto'),
+                #           EllipticEnvelope(contamination=contamination, random_state=0)]
+
                 models = [LocalOutlierFactor(novelty=True, contamination=contamination),
-                          IsolationForest(contamination=contamination, behaviour='new', random_state=0),
-                          OneClassSVM(nu=contamination, kernel="rbf", gamma='auto'),
-                          EllipticEnvelope(contamination=contamination, random_state=0)]
+                          OneClassSVM(nu=contamination, kernel="rbf", gamma='auto')]
 
                 # 目的関数を出力結果にあわせて本人：1，他人:-1に変更する．
                 y_test_true = self.y_test.copy()
@@ -486,85 +498,88 @@ def main(df, user_n, session):
 
                     ori_columns = list(set(ori_column_list) - set(columns_list))
                     ori_columns2 = list(set(ori_column_list2) - set(columns_list))
+                    count = 1
+                    for n in range(1, len(columns_list)+1):
+                        for column in itertools.combinations(columns_list, n):
+                            count += 1
+                            column = list(column)
+                            # print(str(model).split('(')[0], column)
+                            def data_split(df_flag, df_flag_user_extract, user_n2, session_select='first', train_size=60,
+                                           test_size=10):
+                                df_session = df_flag_user_extract.copy()
+                                df_first_pre = df_session.query('1<= doc < 6')
+                                df_flag_data = df_flag.query('1<= doc < 8')
+                                # docの役目は終わったので消去
+                                df_first = df_first_pre.drop('doc', axis=1)
+                                df_flag_pre = df_flag_data.drop('doc', axis=1)
 
-                    for column in columns_list:
-                        print(str(model).split('(')[0], column)
-                        def data_split(df_flag, df_flag_user_extract, user_n2, session_select='first', train_size=60,
-                                       test_size=10):
-                            df_session = df_flag_user_extract.copy()
-                            df_first_pre = df_session.query('1<= doc < 6')
-                            df_flag_data = df_flag.query('1<= doc < 8')
-                            # docの役目は終わったので消去
-                            df_first = df_first_pre.drop('doc', axis=1)
-                            df_flag_pre = df_flag_data.drop('doc', axis=1)
+                                if df_first['user'].count() >= (train_size + test_size):
+                                    # 説明変数と目的変数に分割
+                                    x, y = x_y_split(df_first)
 
-                            if df_first['user'].count() >= (train_size + test_size):
-                                # 説明変数と目的変数に分割
-                                x, y = x_y_split(df_first)
+                                    # その他のデータとテスト用(認証用)データに切り分け
+                                    x_train_all2, x_test_t2, y_train_all2, y_test_t2 = train_test_split(x, y,
+                                                                                                        test_size=test_size,
+                                                                                                        random_state=0,
+                                                                                                        shuffle=True)
+                                    # テストデータの個数をカウント➝外れ値はテストデータ数と同じ数だけ用意する
+                                    # _outlinerの呼び出し
+                                    fake_data_except_test_f2, test_f2 = _outlier(df_flag_pre, user_n, test_size)
 
-                                # その他のデータとテスト用(認証用)データに切り分け
-                                x_train_all2, x_test_t2, y_train_all2, y_test_t2 = train_test_split(x, y,
-                                                                                                    test_size=test_size,
-                                                                                                    random_state=0,
-                                                                                                    shuffle=True)
-                                # テストデータの個数をカウント➝外れ値はテストデータ数と同じ数だけ用意する
-                                # _outlinerの呼び出し
-                                fake_data_except_test_f2, test_f2 = _outlier(df_flag_pre, user_n, test_size)
+                                    # test_tとtest_fの結合
+                                    x_test2, y_test2, x_test_f2, y_test_f2 = _tf_concat(x_test_t2, y_test_t2, test_f2)
 
-                                # test_tとtest_fの結合
-                                x_test2, y_test2, x_test_f2, y_test_f2 = _tf_concat(x_test_t2, y_test_t2, test_f2)
+                                    return x_train_all2, y_train_all2, x_test2, y_test2, x_test_t2, y_test_t2, \
+                                           x_test_f2, y_test_f2, test_f2, fake_data_except_test_f2
 
-                                return x_train_all2, y_train_all2, x_test2, y_test2, x_test_t2, y_test_t2, \
-                                       x_test_f2, y_test_f2, test_f2, fake_data_except_test_f2
+                                else:
+                                    print('None')
+                                    return 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-                            else:
-                                print('None')
-                                return 0, 0, 0, 0, 0, 0, 0, 0, 0
+                            x_train_all, y_train_all, x_test, y_test, x_test_t, y_test_t, x_test_f, y_test_f, test_f, \
+                                fake_data_except_test_f = data_split(self.df_flag[[*ori_columns, *column]],
+                                                                     self.df_flag_user_extract[[*ori_columns, *column]],
+                                                                     self.u_n,
+                                                                     self.session_select, test_size=10)
 
-                        x_train_all, y_train_all, x_test, y_test, x_test_t, y_test_t, x_test_f, y_test_f, test_f, \
-                            fake_data_except_test_f = data_split(self.df_flag[[*ori_columns, column]],
-                                                                 self.df_flag_user_extract[[*ori_columns, column]],
-                                                                 self.u_n,
-                                                                 self.session_select, test_size=10)
+                            x_train = x_train_all.sample(frac=1, random_state=0)
 
-                        x_train = x_train_all.sample(frac=1, random_state=0)
+                            # for i in tqdm(range(5, 61), desc=f'{self.u_n}_2nd loop'):
+                            ans = [self.u_n, self.flag_n, self.session_select, str(model).split('(')[0]]
+                            X_train = x_train[:50]
+                            # 標準化
+                            ss = preprocessing.StandardScaler()
+                            ss.fit(X_train)
+                            X_train_ss = ss.transform(X_train)
+                            x_test_ss = ss.transform(x_test)
+                            x_test_t_ss = ss.transform(x_test_t)
+                            x_test_f_ss = ss.transform(x_test_f)
 
-                        # for i in tqdm(range(5, 61), desc=f'{self.u_n}_2nd loop'):
-                        ans = [self.u_n, self.flag_n, self.session_select, str(model).split('(')[0]]
-                        X_train = x_train[:50]
-                        # 標準化
-                        ss = preprocessing.StandardScaler()
-                        ss.fit(X_train)
-                        X_train_ss = ss.transform(X_train)
-                        x_test_ss = ss.transform(x_test)
-                        x_test_t_ss = ss.transform(x_test_t)
-                        x_test_f_ss = ss.transform(x_test_f)
+                            X_train_ss_df = pd.DataFrame(X_train_ss, columns=[*ori_columns2, *column])
 
-                        X_train_ss_df = pd.DataFrame(X_train_ss, columns=[*ori_columns2, column])
+                            model.fit(X_train_ss_df)
+                            test_pred = model.predict(x_test_ss)
+                            test_normal_result = model.predict(x_test_t_ss)
+                            test_anomaly_result = model.predict(x_test_f_ss)
 
-                        model.fit(X_train_ss_df)
-                        test_pred = model.predict(x_test_ss)
-                        test_normal_result = model.predict(x_test_t_ss)
-                        test_anomaly_result = model.predict(x_test_f_ss)
+                            t_far, t_frr, t_ber = far_frr_ber(test_normal_result, test_anomaly_result)
 
-                        t_far, t_frr, t_ber = far_frr_ber(test_normal_result, test_anomaly_result)
+                            accuracy = accuracy_score(y_true=y_true, y_pred=test_pred)
+                            precision = precision_score(y_true, test_pred)
+                            recall = recall_score(y_true, test_pred)
+                            f1 = f1_score(y_true, test_pred)
+                            auc = roc_auc_score(y_true, model.decision_function(x_test_ss))
+                            far = t_far
+                            frr = t_frr
+                            ber = t_ber
 
-                        accuracy = accuracy_score(y_true=y_true, y_pred=test_pred)
-                        precision = precision_score(y_true, test_pred)
-                        recall = recall_score(y_true, test_pred)
-                        f1 = f1_score(y_true, test_pred)
-                        auc = roc_auc_score(y_true, model.decision_function(x_test_ss))
-                        far = t_far
-                        frr = t_frr
-                        ber = t_ber
+                            ans.extend([accuracy, precision, recall, f1, auc, far, frr, ber, column])
 
-                        ans.extend([accuracy, precision, recall, f1, auc, far, frr, ber, column])
-
-                        print(ans)
-                        s = pd.DataFrame(ans).T
-                        PATH = "result2021part4"
-                        os.makedirs(PATH, exist_ok=True)
-                        s.to_csv(f'{PATH}/featuredata_comb.csv', mode='a', header=False, index=False)
+                            print(count, ans)
+                            s = pd.DataFrame(ans).T
+                            PATH = "result2021part5"
+                            os.makedirs(PATH, exist_ok=True)
+                            s.to_csv(f'{PATH}/featuredata_comb_cc.csv', mode='a', header=False, index=False)
 
             except AttributeError as ex:
                 print(f"No train data:{ex}")
@@ -695,91 +710,93 @@ def main(df, user_n, session):
                 print(f"{ex}")
                 pass
 
-
+    # Comment: 変更箇所5 flag関係なしのときだけを行う場合
+    oneclasstwo_flag_none = OneClassTwo(df, all_user_extract, user_n, 55, session)
+    oneclasstwo_flag_none.registration_phase()
 
     oneclasstwo_aa = OneClassTwo(aa, aa_user_extract, user_n, 11, session)
     # oneclasstwo_aa.registration_phase()
     # oneclasstwo_aa.add_data()
-    oneclasstwo_aa.feature_none()
+    # oneclasstwo_aa.feature()
 
     oneclasstwo_ab = OneClassTwo(ab, ab_user_extract, user_n, 12, session)
     # oneclasstwo_ab.registration_phase()
     # oneclasstwo_ab.add_data()
-    oneclasstwo_ab.feature_none()
+    # oneclasstwo_ab.feature()
 
     oneclasstwo_ac = OneClassTwo(ac, ac_user_extract, user_n, 13, session)
     # oneclasstwo_ac.registration_phase()
     # oneclasstwo_ac.add_data()
-    oneclasstwo_ac.feature_none()
+    # oneclasstwo_ac.feature()
 
     oneclasstwo_ad = OneClassTwo(ad, ad_user_extract, user_n, 14, session)
     # oneclasstwo_ad.registration_phase()
     # oneclasstwo_ad.add_data()
-    oneclasstwo_ad.feature_none()
+    # oneclasstwo_ad.feature()
 
     oneclasstwo_ba = OneClassTwo(ba, ba_user_extract, user_n, 21, session)
     # oneclasstwo_ba.registration_phase()
     # oneclassone_a.authentication_phase()
     # oneclasstwo_ba.add_data()
-    oneclasstwo_ba.feature_none()
+    # oneclasstwo_ba.feature()
 
     oneclasstwo_bb = OneClassTwo(bb, bb_user_extract, user_n, 22, session)
     # oneclasstwo_bb.registration_phase()
     # oneclasstwo_bb.add_data()
-    oneclasstwo_bb.feature_none()
+    # oneclasstwo_bb.feature()
 
     oneclasstwo_bc = OneClassTwo(bc, bc_user_extract, user_n, 23, session)
     # oneclasstwo_bc.registration_phase()
     # oneclasstwo_bc.add_data()
-    oneclasstwo_bc.feature_none()
+    # oneclasstwo_bc.feature()
 
     oneclasstwo_bd = OneClassTwo(bd, bd_user_extract, user_n, 24, session)
     # oneclasstwo_bd.registration_phase()
     # oneclasstwo_bd.add_data()
-    oneclasstwo_bd.feature_none()
+    # oneclasstwo_bd.feature()
 
     oneclasstwo_ca = OneClassTwo(ca, ca_user_extract, user_n, 31, session)
     # oneclasstwo_ca.registration_phase()
     # oneclassone_a.authentication_phase()
     # oneclasstwo_ca.add_data()
-    oneclasstwo_ca.feature_none()
+    # oneclasstwo_ca.feature()
 
     oneclasstwo_cb = OneClassTwo(cb, cb_user_extract, user_n, 32, session)
     # oneclasstwo_cb.registration_phase()
     # oneclasstwo_cb.add_data()
-    oneclasstwo_cb.feature_none()
+    # oneclasstwo_cb.feature()
 
     oneclasstwo_cc = OneClassTwo(cc, cc_user_extract, user_n, 33, session)
     # oneclasstwo_cc.registration_phase()
     # oneclasstwo_cc.add_data()
-    oneclasstwo_cc.feature_none()
+    # oneclasstwo_cc.feature()
 
     oneclasstwo_cd = OneClassTwo(cd, cd_user_extract, user_n, 34, session)
     # oneclasstwo_cd.registration_phase()
     # oneclasstwo_cd.add_data()
-    oneclasstwo_cd.feature_none()
+    # oneclasstwo_cd.feature()
 
 
     oneclasstwo_da = OneClassTwo(da, da_user_extract, user_n, 41, session)
     # oneclasstwo_da.registration_phase()
     # oneclassone_a.authentication_phase()
     # oneclasstwo_da.add_data()
-    oneclasstwo_da.feature_none()
+    # oneclasstwo_da.feature()
 
     oneclasstwo_db = OneClassTwo(db, db_user_extract, user_n, 42, session)
     # oneclasstwo_db.registration_phase()
     # oneclasstwo_db.add_data()
-    oneclasstwo_db.feature_none()
+    # oneclasstwo_db.feature()
 
     oneclasstwo_dc = OneClassTwo(dc, dc_user_extract, user_n, 43, session)
     # oneclasstwo_dc.registration_phase()
     # oneclasstwo_dc.add_data()
-    oneclasstwo_dc.feature_none()
+    # oneclasstwo_dc.feature()
 
     oneclasstwo_dd = OneClassTwo(dd, dd_user_extract, user_n, 44, session)
     # oneclasstwo_dd.registration_phase()
     # oneclasstwo_dd.add_data()
-    oneclasstwo_dd.feature_none()
+    # oneclasstwo_dd.feature()
 
 
 if __name__ == '__main__':
@@ -789,14 +806,16 @@ if __name__ == '__main__':
     frank_df = load_frank(True)
     # frank_df = timeprocess(frank_df_pre)
     session_list = ['first', 'latter', 'all', 'all_test_shinario2']
-    # for sessions in session_list:
-    #     for user in range(1, 42):
-    #         main(frank_df, user, session=sessions)
+    for sessions in session_list:
+        for user in range(1, 42):
+            main(frank_df, user, session=sessions)
 
     # add_data
     # for user in range(1, 42):
         # main(frank_df, user, session='first')
 
     # feature
-    for user in range(1, 42):
-        main(frank_df, user, session='first')
+    # for user in range(1, 42):
+    #     main(frank_df, user, session='first')
+
+    # main(frank_df, 23, session='first')

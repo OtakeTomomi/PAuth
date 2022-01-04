@@ -74,15 +74,17 @@ def main(PATH, plotfile, n):
         # s = 'first'
         # k = 3
         # m = ['_', 'up', 'right', 'down', 'left']
-        m = ['-', 'up', 'left', 'down', 'right']
+        m = ['-', 'up', 'left', 'down', 'right', 'all_flag']
         # plt.figure(1)
 
         for s in scenario_list:
             # plt.subplot(4, 1, 1)
             if n == 4:
-                flag_list = [1, 2, 3, 4]
+                flag_list1 = [0, 1, 2, 3, 4, 5]
+                flag_list2 = list(re_mean_m.index.get_level_values('flag'))
+                flag_list = sorted(list(set(flag_list1) & set(flag_list2)))
             else:
-                flag_list1 = [11, 12, 13, 14, 21, 22, 23, 24, 31, 32, 33, 34, 41, 42, 43, 44]
+                flag_list1 = [11, 12, 13, 14, 21, 22, 23, 24, 31, 32, 33, 34, 41, 42, 43, 44, 55]
                 flag_list2 = list(re_mean_m.index.get_level_values('flag'))
                 flag_list = sorted(list(set(flag_list1) & set(flag_list2)))
             for k in flag_list:
@@ -96,6 +98,7 @@ def main(PATH, plotfile, n):
 
                 # y軸_mean
                 y_mean_ber = list(re_mean_m['BER'].xs([s, k, p], level=['scenario', 'flag', 'performance']))
+                # print(y_mean_ber)
                 # print(y_mean_ber)
                 y_mean_far = list(re_mean_m['FAR'].xs([s, k, p], level=['scenario', 'flag', 'performance']))
                 y_mean_frr = list(re_mean_m['FRR'].xs([s, k, p], level=['scenario', 'flag', 'performance']))
@@ -118,7 +121,10 @@ def main(PATH, plotfile, n):
                 y_std_acc = list(re_std_m['Accuracy'].xs([s, k, p], level=['scenario', 'flag', 'performance']))
 
                 # タイトル
-                plt.title(f'scenario: {sessions[s]}, flag: {m[k//10]}+{m[k%10]}')
+                if n == 4:
+                    plt.title(f'scenario: {sessions[s]}, flag: {m[k]}')
+                else:
+                    plt.title(f'scenario: {sessions[s]}, flag: {m[k//10]}+{m[k%10]}')
 
                 x = np.arange(len(labels))
                 width = 0.2
@@ -194,12 +200,27 @@ def main(PATH, plotfile, n):
     plot_re(re_mean_test, re_max_test, re_min_test, re_std_test, p='test')
 
 
+
+
+def main2(PATH, plotfile, n):
+    # 結果の読み込み
+    re_mean_val = pd.read_csv(f'{PATH}result_mean_val.csv', sep=",", header=None)
+    re_max_val = pd.read_csv(f'{PATH}result_max_val.csv', sep=",", header=None)
+    re_min_val = pd.read_csv(f'{PATH}result_min_val.csv', sep=",", header=None)
+    re_std_val = pd.read_csv(f'{PATH}result_std_val.csv', sep=",", header=None)
+
+    re_mean_test = pd.read_csv(f'{PATH}result_mean_test.csv', sep=",", header=None)
+    re_max_test = pd.read_csv(f'{PATH}result_max_test.csv', sep=",", header=None)
+    re_min_test = pd.read_csv(f'{PATH}result_min_test.csv', sep=",", header=None)
+    re_std_test = pd.read_csv(f'{PATH}result_std_test.csv', sep=",", header=None)
+
 if __name__ == '__main__':
     # print("結果")
-    # PATH = 'result2021part3/matome/'
-    PATH = 'result2021part3/matome_comb/'
-    plotfile = 'plot_result2'
+    PATH = 'result2022/zikken_3-3-all/matome_one/'
+    # PATH = 'result2022/zikken_3-4-all/matome_two/'
+    plotfile = 'plot_result'
     # combのときはn=16にする
-    main(PATH, plotfile, n=16)
+    main(PATH, plotfile, n=4)
+    # main(PATH, plotfile, n=16)
 
 

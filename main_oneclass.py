@@ -63,6 +63,7 @@ def main(df, user_n, session):
         os.makedirs('result2022/zikken_3-3-2', exist_ok=True)
         df_flag_user_extract = df_flag[df_flag['user'] == u_n]
         # Comment: 変更箇所3 1-41人全員分行ったらコメントアウト→2020/11/05済→2021/12/30済(書き換え特徴量プログラムにデータセットを通したため)
+        print(f'{u_n}: {flag_text}: {len(df_flag_user_extract)}')
         data_item = pd.DataFrame([u_n, flag_text, len(df_flag_user_extract)]).T
         # data_item.to_csv(f'result2022/zikken_3-3-2/main_oneclass_df_flag_user_extract_item.csv',
         #                  mode='a', header=None, index=None)
@@ -148,7 +149,7 @@ def main(df, user_n, session):
     class OneClassOne(object):
 
         def __init__(self, df_flag, df_flag_user_extract, u_n, flag_n, session_select):
-            flag_memori = ['all', 'a', 'b', 'c', 'd']
+            flag_memori = ['-', 'a', 'b', 'c', 'd', 'all_flag']
             print(
                 f'\n-----------------------------------------------------------------\n'
                 f'{user_n} : {flag_memori[flag_n]} : {session_select}'
@@ -164,7 +165,7 @@ def main(df, user_n, session):
                 self.x_train, self.y_train, self.x_test, self.y_test, self.x_test_t,\
                     self.y_test_t, self.x_test_f, self.y_test_f, self.test_f, self.fake_data_except_test_f \
                     = datasplit_session(self.df_flag, self.df_flag_user_extract, self.u_n, self.session_select,
-                                        train_size=40, test_size=20)
+                                        train_size=40, test_size=10)
 
                 # 標準化
                 ss = preprocessing.StandardScaler()
@@ -635,25 +636,25 @@ def main(df, user_n, session):
             except AttributeError as ex:
                 print(f"No train data:{ex}")
                 pass
-
-    oneclassone_all = OneClassOne(df, all_user_extrtact, user_n, 0, session)
+    # Comment: 変更箇所5 flag関係なしのときだけを行う場合
+    oneclassone_all = OneClassOne(df, all_user_extrtact, user_n, 5, session)
     oneclassone_all.registration_phase()
 
     oneclassone_a = OneClassOne(a, a_user_extract, user_n, 1, session)
-    oneclassone_a.registration_phase()
+    # oneclassone_a.registration_phase()
     # oneclassone_a.authentication_phase()
     # oneclassone_a.add_data()
 
     oneclassone_b = OneClassOne(b, b_user_extract, user_n, 2, session)
-    oneclassone_b.registration_phase()
+    # oneclassone_b.registration_phase()
     # oneclassone_b.add_data()
 
     oneclassone_c = OneClassOne(c, c_user_extract, user_n, 3, session)
-    oneclassone_c.registration_phase()
+    # oneclassone_c.registration_phase()
     # oneclassone_c.add_data()
 
     oneclassone_d = OneClassOne(d, d_user_extract, user_n, 4, session)
-    oneclassone_d.registration_phase()
+    # oneclassone_d.registration_phase()
     # oneclassone_d.ocsvmtest()
     # oneclassone_d.add_data()
 

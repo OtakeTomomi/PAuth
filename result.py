@@ -5,13 +5,14 @@ import pprint
 
 
 # Comment：変更必要あり
-PATH = 'result2021part3'
-# PATH2 = 'result2021part3/matome'
-PATH2 = 'result2021part3/matome_comb'
-# filename_val = 'result_2021-01-05_val'
-# filename_test = 'result_2021-01-05_test'
-filename_val = 'result_2021-01-05_val_comb'
-filename_test = 'result_2021-01-05_test_comb'
+PATH_IN = 'result2022'
+# PATH2 = 'result2021part4/matome_one'
+PATH_OUT = 'result2022/zikken_3-3-all/matome_one'
+# PATH_OUT = 'result2022/zikken_3-4-all/matome_two'
+filename_val = 'result_2022-01-03_val'
+filename_test = 'result_2022-01-03_test'
+# filename_val = 'result_2022-01-03_val_comb'
+# filename_test = 'result_2022-01-03_test_comb'
 
 # Columnのリスト
 val_columns = ['user', 'flag', 'performance', 'model', 'Accuracy', 'Precision',
@@ -26,10 +27,10 @@ model_index = ['LocalOutlierFactor', 'IsolationForest', 'OneClassSVM', 'Elliptic
 
 # 結果のデータを読み込み
 # 交差検証データ
-val_df = pd.read_csv(f"{PATH}/{filename_val}.csv", sep=",", header=None)
+val_df = pd.read_csv(f"{PATH_IN}/{filename_val}.csv", sep=",", header=None)
 val_df.columns = val_columns
 # テストデータ
-test_df = pd.read_csv(f"{PATH}/{filename_test}.csv", sep=",", header=None)
+test_df = pd.read_csv(f"{PATH_IN}/{filename_test}.csv", sep=",", header=None)
 test_df.columns = test_columns
 
 # multi_indexの設定
@@ -54,7 +55,8 @@ def count_table(df):
 ct, ct_list = count_table(val_m_df)
 pprint.pprint(ct)
 
-os.makedirs(PATH2, exist_ok=True)
+# Comment：変更必要あり
+os.makedirs(PATH_OUT, exist_ok=True)
 
 # 書き出し用の処理
 def write_data(df, model_index, columns, flag_n, text, perf, session):
@@ -68,10 +70,10 @@ def write_data(df, model_index, columns, flag_n, text, perf, session):
     df = df.drop('index', 1)
     re = pd.concat([sessions, flag, performance, model, df], axis=1)
     if perf == 'val':
-        re.to_csv(f'{PATH2}/result_{text}_{perf}.csv', mode='a', header=False, index=False)
+        re.to_csv(f'{PATH_OUT}/result_{text}_{perf}.csv', mode='a', header=False, index=False)
         return re
     elif perf == 'test':
-        re.to_csv(f'{PATH2}/result_{text}_{perf}.csv', mode='a', header=False, index=False)
+        re.to_csv(f'{PATH_OUT}/result_{text}_{perf}.csv', mode='a', header=False, index=False)
         return re
 
 
@@ -94,7 +96,7 @@ def calc(ct, ct_list, df, columns, model_index, perf, session_list):
                     d[i][j] = data.std()
                     # print(d)
 
-            memori = ['0', 'a', 'b', 'c', 'd']
+            memori = ['0', 'a', 'b', 'c', 'd', 'all_flag']
             # 該当ユーザの抽出
             n = df.xs([s, k, perf, 'LocalOutlierFactor'], level=['scenario', 'flag', 'performance', 'model'])
             # print(n)
